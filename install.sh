@@ -57,11 +57,14 @@ I_FETCH_STR_ACC="acceptEula"
 Q_INSTALLER_URL_ACC="${I_PORTAL_URL}/v1/dl/${I_FETCH_STR_ACC}/825277/825299?filename=${Q_INSTALLER}"
 Q_INSTALLER_URL_GET="${I_PORTAL_URL}/v1/dl/${I_FETCH_STR_GET}/825277/825299?filename=${Q_INSTALLER}"
 
+G_URL="https://github.com"
+G_ICON_REPO="${G_URL}/zayronxio/Elementary-KDE-Icons.git"
+
 TMP_DOWNLOAD_DIR="/tmp/intel-setup"
 Q_INSTALLER_ABS_PATH="${TMP_DOWNLOAD_DIR}/${Q_INSTALLER}"
 
 Q_DIRNAME="intelFPGA_lite"
-Q_ROOTDIR="/opt/fpga_test"  # FIXME: Change to /opt after testing!
+Q_ROOTDIR="/opt/fpga_test/${Q_DIRNAME}"  # FIXME: Remove "/fpga_test" after testing!
 
 # By default, the license key file is obtained by this setup script ('locate_qlicense').
 # LICENSE_FILE="LR-202898_License.dat"
@@ -164,6 +167,24 @@ function check_distro() {
             esac
             ;;
     esac
+}
+
+
+### Verify dependencies on curl and git
+#
+function check_deps() {
+    git_path="$(which git)"
+    curl_path="$(which curl)"
+    [ -f "${git_path}" ] &&\
+    ok "Git installed." ||\
+    (err "Git not found!" &&\
+    info " ==> Please install Git first and run this skript again." &&\
+    return 1)
+    [ -f "${curl_path}" ] &&\
+    ok "Curl installed." ||\
+    (err "Curl not found!" &&\
+    info " ==> Please install Curl first and run this skript again." &&\
+    return 1)
 }
 
 
@@ -277,6 +298,23 @@ function start_download() {
 #
 function download_qinstaller() {
     start_download "${Q_INSTALLER_URL_GET}" "${Q_INSTALLER_ABS_PATH}"
+}
+
+
+### Clone icon repository from Github to user's icon dir
+#
+function download_icons() {
+    if [ ! -d "${LOCAL_ICONDIR}/elementary-kde" ]; then
+        is_service_available "${G_URL}" &&\
+        mkdir -p "${LOCAL_ICONDIR}" &&\
+        info "Please wait, downloading icon set from Github ..." &&\
+        git clone "${G_ICON_REPO}" "${LOCAL_ICONDIR}/elementary-kde" 2>&1 > /dev/null &&\
+        ok "Icons have been set up, yay :)" ||\
+        (err "Something went wrong during icon setup! :/" &&\
+        return 1)
+    else
+        ok "Icons already there :)"
+    fi
 }
 
 
@@ -397,6 +435,7 @@ function run_qinstaller() {
 function run_preinstaller() {
     check_shell &&\
     check_distro &&\
+    check_deps &&\
     check_sudo &&\
     locate_qlicense &&\
     locate_qinstaller &&\
@@ -410,7 +449,7 @@ function run_preinstaller() {
 #
 function run_postinstaller() {
     echo ""
-    info "Starting post-installation:\n"\
+    info "PERFORMING POST-INSTALLATION:\n"\
         "\tSome of the following steps you will need to confirm with your password.\n"\
         "\tPlease enter it if prompted for.\n"\
         "\t ==> On most systems, nothing is echoed due to security reasons!\n"
@@ -418,12 +457,15 @@ function run_postinstaller() {
     relocate_qrootdir &&\
     (create_quartus_launcher;
     create_questa_launcher;
-    # TODO:
-    # fetch_icons;
+    download_icons;
     update_envvars;
-    # TODO:
-    # create_mimetypes;
     create_udevrules)
+    # TODO:
+    # create_mimetypes;)
+    info "If you can see only green \"OK\" feedback below post-install headline\n"\
+        "\t\tyou are now ready to use your Intel FPGA suite :)\n"\
+        "\t\t ==> Otherwise, please investigate the error messages\n"\
+        "\t\t  and fix the corresponding parts manually."
 }
 
 
@@ -433,10 +475,12 @@ function relocate_qrootdir() {
     q_dir="$(find "${HOME}" -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
 
     if [ -d "${q_dir}" ]; then
-        info "Moving ${q_dir} to ${Q_ROOTDIR} ..."
-        sudo mv "${q_dir}" "${Q_ROOTDIR}/" &&\
+        info "Creating Quartus' root directory ..."
+        sudo mkdir -p "${Q_ROOTDIR}" &&\
+        info "Please wait a moment while moving ${q_dir} to ${Q_ROOTDIR}/ ..." &&\
+        sudo mv "${q_dir}" "${Q_ROOTDIR}" &&\
         info "Making root the owner of Quartus ..." &&\
-        sudo chown -R root:root "${Q_ROOTDIR}/${Q_DIRNAME}" &&\
+        sudo chown -R root:root "${Q_ROOTDIR}" &&\
         ok "Successfully relocated Quartus." ||\
         (err "Something went wrong moving Quartus to \"${Q_ROOTDIR}/\"!" &&\
         return 1)
@@ -456,9 +500,9 @@ function create_quartus_launcher() {
             "\nType=Application"\
             "\nName=Quartus"\
             "\nTerminal=false"\
-            "\nExec=${Q_ROOTDIR}/${Q_DIRNAME}/23.1std/quartus/bin/quartus --64bit %f"\
+            "\nExec=${Q_ROOTDIR}/23.1std/quartus/bin/quartus --64bit %f"\
             "\nComment=Intel Quartus Prime Lite 23.1.1"\
-            "\nIcon=${HOME}/.local/share/icons/quartus/marble.svg"\
+            "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/marble.svg"\
             "\nCategories=Education;Development;"\
             "\nMimeType=application/x-qpf;application/x-qsf;application/x-qws;"\
             "\nKeywords=intel;fpga;ide;quartus;prime;lite;"\
@@ -478,10 +522,10 @@ function create_questa_launcher() {
             "\nType=Application"\
             "\nName=Questa"\
             "\nTerminal=false"\
-            "\nExec=env LM_LICENSE_FILE=${LICENSE_ABS_PATH} "\
-            "${Q_ROOTDIR}/${Q_DIRNAME}/23.1std/questa_fse/bin/vsim -gui %f"\
+            "\nExec=env LM_LICENSE_FILE=${LICENSE_ABS_PATH}"\
+            "${Q_ROOTDIR}/23.1std/questa_fse/bin/vsim -gui %f"\
             "\nComment=Intel Questa Vsim (Prime Lite 23.1.1)"\
-            "\nIcon=${HOME}/.local/share/icons/quartus/gtkwave.svg"\
+            "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/gtkwave.svg"\
             "\nCategories=Education;Development;"\
             "\nMimeType=application/x-ini;application/x-mpf;"\
             "\nKeywords=intel;fpga;ide;simulation;model;vsim;"\
@@ -508,7 +552,7 @@ function update_envvars() {
     sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null &&\
     echo -e "\n#Intel FPGA environment (Quartus Prime Lite)"\
             "\nexport LM_LICENSE_FILE='${LICENSE_ABS_PATH}'"\
-            "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/${Q_DIRNAME}/23.1std/quartus/sopc_builder/bin'"\
+            "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin'"\
     >> "${shellrc}" &&\
     ok "Updated Quartus' environment variables." ||\
     (err "Someting went wrong when trying to update Quartus' environment variables!" &&\
@@ -529,8 +573,8 @@ function create_udevrules() {
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6010\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6810\", MODE=\"0666\""\
     | sudo tee "${udev_abs_filepath}" > /dev/null &&\
-    ok "Added udev rules for USB-blaster." ||\
-    (err "Failed to create udev rules for USB-blaster!" &&\
+    ok "Rules have been added." ||\
+    (err "Failed to create udev rules!" &&\
     return 1)
 }
 
@@ -538,4 +582,4 @@ function create_udevrules() {
 ### RUN THIS SKRIPT ###
 clear
 info "${HELLO_MSG}"
-run_preinstaller
+#run_preinstaller
