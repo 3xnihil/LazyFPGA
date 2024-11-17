@@ -252,9 +252,9 @@ function start_download() {
 }
 
 
-### Verify Intel's installer script after downloading
+### I.e. verify Intel's installer script is intact
 #
-function verify_download() {
+function verify_file() {
     abs_filepath="$1"
     sha1_checksum_expected="$2"
     file_to_verify="$(basename ${abs_filepath})"
@@ -272,6 +272,30 @@ function verify_download() {
     else
         err "Not able to verify! »${abs_filepath}« not present."
         return 1
+    fi
+}
+
+
+### Maybe the user already got the Quartus installer
+#
+# IMPORTANT: Keeping things simple, it will only select the first match it spotted!
+#
+function locate_qinstaller() {
+    info "Please wait, investigating »/« for a suitable installer already present anywhere ..."
+    q_inst="$(find / -name ${Q_INSTALLER} -type f 2> /dev/null | head -n 1)"
+    if [ -f "${q_inst}" ]; then
+        info "Found an installer candidate at »${q_inst}«."
+        q_filesize_bytes="$(du ${q_inst} | grep -oP '^[0-9]+')"
+        [ $q_filesize_bytes -ge 16000 ] &&\
+        ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
+        Q_INSTALLER_ABS_PATH="${q_inst}" ||\
+        (warning "Installer candidate's file size is too small for being intact!" &&\
+        info "Murmel, murmel. Trying to download from Intel instead ..." &&\
+        start_download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}")
+    else
+        info "No Quartus installer seems present on your system.\n"\
+            "\t\tTrying to download it from Intel ..."
+        start_download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}"
     fi
 }
 
@@ -327,8 +351,8 @@ function prepare_install() {
     check_distro &&\
     check_sudo &&\
     locate_license_key &&\
-    start_download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}" &&\
-    verify_download "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}" &&\
+    locate_qinstaller &&\
+    verify_file "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}" &&\
     run_quartus_installer &&\
     run_postinstall
 }
