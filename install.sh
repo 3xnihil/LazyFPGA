@@ -53,7 +53,7 @@ Q_INSTALLER_ABS_PATH="${TMP_DOWNLOAD_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
 Q_ROOTDIR="/opt/fpga_test"  # FIXME: Change to /opt after testing!
 
-# By default, the license key file is obtained by this setup script ('locate_license_key').
+# By default, the license key file is obtained by this setup script ('locate_qlicense').
 # LICENSE_FILE="LR-202898_License.dat"
 # LICENSE_ABS_PATH="${HOME}/.licenses/intel/${LICENSE_FILE}"
 
@@ -260,13 +260,15 @@ function verify_file() {
     file_to_verify="$(basename ${abs_filepath})"
 
     if [ -f "${abs_filepath}" ]; then
-        ok "File found at »${abs_filepath}«."
+        # ok "File found at\n\t\t»${abs_filepath}«."
         info "Checking file integrity ..."
         if [ "$(sha1sum ${abs_filepath} | grep -i ${sha1_checksum_expected})" 2>&1 > /dev/null ]; then
             ok "»${file_to_verify}« matches expected checksum and seems intact :)"
             return 0
         else
-            warning "Caution: »${file_to_verify}« may be corrupted and should not be used!"
+            warning "Caution: »${abs_filepath}«\n\t\tmay be corrupted and should not be used!"
+            info " ==> If you received this message after a local installer file has been spotted,\n"\
+                "\t\t  please delete that file first and run this script again :)"
             return 1
         fi
     else
@@ -284,13 +286,13 @@ function locate_qinstaller() {
     info "Please wait, investigating »/« for a suitable installer already present anywhere ..."
     q_inst="$(find / -name ${Q_INSTALLER} -type f 2> /dev/null | head -n 1)"
     if [ -f "${q_inst}" ]; then
-        info "Found an installer candidate at »${q_inst}«."
+        info "Found an installer candidate ..."
         q_filesize_bytes="$(du ${q_inst} | grep -oP '^[0-9]+')"
         [ $q_filesize_bytes -ge 16000 ] &&\
         ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
         Q_INSTALLER_ABS_PATH="${q_inst}" ||\
         (warning "Installer candidate's file size is too small for being intact!" &&\
-        info "Murmel, murmel. Trying to download from Intel instead ..." &&\
+        info "Murmle, murmle! Trying to download from Intel instead ..." &&\
         start_download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}")
     else
         info "No Quartus installer seems present on your system.\n"\
@@ -302,7 +304,7 @@ function locate_qinstaller() {
 
 ### Check if user already got a license key for Questa Vsim
 #
-function locate_license_key() {
+function locate_qlicense() {
     LICENSE_ABS_PATH="$(find ${HOME} -maxdepth 3 -name *_License.dat -type f 2> /dev/null | head -n 1)"
     [ -f "${LICENSE_ABS_PATH}" ] &&\
     ok "Found license key for Questa at »${LICENSE_ABS_PATH}«." ||\
@@ -318,7 +320,7 @@ function locate_license_key() {
 
 ### Launch the actual Intel Quartus installer
 #
-function run_quartus_installer() {
+function run_qinstaller() {
     clear
     info "PLEASE NOTICE:\n"\
         "\tAt the next step, the Intel Quartus installer will be launched.\n"\
@@ -346,40 +348,40 @@ function run_quartus_installer() {
 
 ### The setup process
 #
-function prepare_install() {
+function run_preinstaller() {
     check_shell &&\
     check_distro &&\
     check_sudo &&\
-    locate_license_key &&\
+    locate_qlicense &&\
     locate_qinstaller &&\
     verify_file "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}" &&\
-    run_quartus_installer &&\
-    run_postinstall
+    run_qinstaller &&\
+    run_postinstaller
 }
 
 
 ### Run actual post-install assistant
 #
-function run_postinstall() {
+function run_postinstaller() {
     info "Starting post-installation.\n"\
         "\tSome of the following steps you will need to confirm with your password.\n"\
         "\tPlease enter it if prompted for.\n"\
         "\t ==> On most systems, nothing is echoed for security reasons!\n"
 
-    relocate_quartus_rootdir &&\
-    create_quartus_desktop_launcher &&\
-    create_questa_desktop_launcher &&\
+    relocate_qrootdir &&\
+    (create_quartus_launcher;
+    create_questa_launcher;
     # TODO:
-    # fetch_icons &&\
-    update_environment_vars &&\
-    # create_mimetypes &&\ # TODO - optional
-    create_udev_usbblaster_rules
+    # fetch_icons;
+    update_envvars;
+    # create_mimetypes # TODO - optional
+    create_udevrules)
 }
 
 
 ### Move Quartus' root dir to another (and more adequate) place
 #
-function relocate_quartus_rootdir() {
+function relocate_qrootdir() {
     q_dir="$(find ${HOME} -name ${Q_DIRNAME} -type d | head -n 1)"
 
     if [ -d "${q_dir}" ]; then
@@ -400,7 +402,7 @@ function relocate_quartus_rootdir() {
 
 ### Create a desktop file for Quartus
 #
-function create_quartus_desktop_launcher() {
+function create_quartus_launcher() {
     echo -e "[Desktop Entry]"\
             "\nVersion=1.0"\
             "\nType=Application"\
@@ -422,7 +424,7 @@ function create_quartus_desktop_launcher() {
 
 ### Create a desktop file for Questa
 #
-function create_questa_desktop_launcher() {
+function create_questa_launcher() {
     echo -e "[Desktop Entry]"\
             "\nVersion=1.0"\
             "\nType=Application"\
@@ -451,7 +453,7 @@ function create_questa_desktop_launcher() {
 #   program's location changes, this is done by
 #   this function.
 #
-function update_environment_vars() {
+function update_envvars() {
     shellrc="${HOME}/.$(basename ${SHELL})rc"
     info "Updating Quartus' environment variables in ${shellrc} ..."
     sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" &&\
@@ -468,7 +470,7 @@ function update_environment_vars() {
 
 ### Create udev-rules for USB-blaster support
 #
-function create_udev_usbblaster_rules() {
+function create_udevrules() {
     udev_rulepath="/etc/udev/rules.d"
     udev_file="51-usbblaster.rules"
     udev_abs_filepath="${udev_rulepath}/${udev_file}"
@@ -488,4 +490,4 @@ function create_udev_usbblaster_rules() {
 ###### MAIN ######
 echo ""
 info "*** Welcome to Jo's FPGA Helper ***\n"
-#prepare_install
+#run_preinstaller
