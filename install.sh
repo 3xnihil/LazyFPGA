@@ -1,5 +1,9 @@
-### FPGA Install Helper
-### for Quartus Prime Lite (23.1.1)
+#!/usr/bin/env bash
+#
+#######################################
+### FPGA Install Helper             ###
+### for Quartus Prime Lite (23.1.1) ###
+#######################################
 #
 # Author: Johannes Hüffer
 # Date: 15.11.2024
@@ -32,6 +36,9 @@
 #   ==> https://github.com/zayronxio/Elementary-KDE-Icons
 #
 
+HELLO_MSG="~~~ Welcome to Jo's FPGA Helper ~~~\n"
+trap "echo -e \"\n\t\t~~~ FPGA Helper quit. Bye for now! :) ~~~\n\"" EXIT
+
 DISTRO="$(lsb_release -si)"
 
 LOCAL_APPDIR="${HOME}/.local/share/applications"
@@ -45,7 +52,10 @@ QUARTUS_ICON="marble.svg"
 Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
 Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
 I_PORTAL_URL="https://cdrdv2.intel.com"
-Q_INSTALLER_URL="${I_PORTAL_URL}/v1/dl/getContent/825277/825299?filename=${Q_INSTALLER}"
+I_FETCH_STR_GET="getContent"
+I_FETCH_STR_ACC="acceptEula"
+Q_INSTALLER_URL_ACC="${I_PORTAL_URL}/v1/dl/${I_FETCH_STR_ACC}/825277/825299?filename=${Q_INSTALLER}"
+Q_INSTALLER_URL_GET="${I_PORTAL_URL}/v1/dl/${I_FETCH_STR_GET}/825277/825299?filename=${Q_INSTALLER}"
 
 TMP_DOWNLOAD_DIR="/tmp/intel-setup"
 Q_INSTALLER_ABS_PATH="${TMP_DOWNLOAD_DIR}/${Q_INSTALLER}"
@@ -110,11 +120,11 @@ function info() {
 function check_shell() {
     case "$(basename ${SHELL})" in
         bash|zsh)
-            ok "Your shell is »${SHELL}«."
+            ok "Your shell is \"${SHELL}\"."
             return 0
             ;;
         *)
-            err "Sorry, your shell »${SHELL}« is not supported by this script!"
+            err "Sorry, your shell \"${SHELL}\" is not supported by this script!"
             info "Please use ZSH or BASH instead.\n"\
                 "\t ==> By issuing 'chsh /path/to/shell' you can switch easily :)\n"
             return 1
@@ -170,7 +180,7 @@ function check_sudo() {
     esac
 
     [ "$(id -Gn | grep -c ${sudoers_group})" > /dev/null ] &&\
-    ok "Current user »${USER}« is allowed to perform adminstrative tasks." ||\
+    ok "Current user \"${USER}\" is allowed to perform adminstrative tasks." ||\
     (err "Sorry, user ${USER} does not have sufficient permissions to run this script!" &&\
     info "Please make sure you may gain root privileges first, then try again.\n"\
         "\t\t==> Otherwise please contact your system administration." &&\
@@ -224,6 +234,8 @@ function start_download() {
     download_file="$(basename ${uri})"
     is_service_available "${service_domain}"
 
+    # If function is called inside condition brackets,
+    # STDOUT seems blocked.
     if [ "$?" ]; then
         if [ ! -d "${download_dir}" ]; then
             info "Creating ${download_dir} ..."
@@ -231,14 +243,21 @@ function start_download() {
         fi
 
         info "Now downloading ${url} ...\n"
+
+        # FIX: We have to test with 'curl -I ...' beforehand which
+        #   HTTP status we get when using one of the possible URLs.
+        #   If we get a redirection with the first URL and curl's process ends,
+        #   we have to use the second URL and try again.
         curl -L -o "${uri}" "${url}"
+
+        # FIXME: Investigate curl's exit code by detail!
         # Only for debugging:
         curl_exit_code="$?"
-        # info "Curl exit code: ${curl_exit_code}"
+        info "Curl exit code: ${curl_exit_code}"
 
         if [ "${curl_exit_code}" ]; then
             echo ""
-            ok "Download of »${download_file}« has finished."
+            ok "Download of \"${download_file}\" has finished."
             return 0
         else
             err "Download has failed :/"
@@ -252,29 +271,47 @@ function start_download() {
 }
 
 
+### Download Quartus installer
+#
+# Because it's used quite often ;)
+#
+function download_qinstaller() {
+    start_download "${Q_INSTALLER_URL_GET}" "${Q_INSTALLER_ABS_PATH}"
+}
+
+
 ### I.e. verify Intel's installer script is intact
 #
 function verify_file() {
     abs_filepath="$1"
     sha1_checksum_expected="$2"
-    file_to_verify="$(basename ${abs_filepath})"
+    file_to_verify="$(basename "${abs_filepath}")"
 
     if [ -f "${abs_filepath}" ]; then
-        # ok "File found at\n\t\t»${abs_filepath}«."
+        # ok "File found at\n\t\t\"${abs_filepath}\"."
         info "Checking file integrity ..."
-        if [ "$(sha1sum ${abs_filepath} | grep -i ${sha1_checksum_expected})" 2>&1 > /dev/null ]; then
-            ok "»${file_to_verify}« matches expected checksum and seems intact :)"
+        if [ "$(sha1sum "${abs_filepath}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" 2>&1 > /dev/null ]; then
+            ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
             return 0
         else
-            warning "Caution: »${abs_filepath}«\n\t\tmay be corrupted and should not be used!"
+            warning "Caution: \"${abs_filepath}\"\n\t\tmay be corrupted and should not be used!"
             info " ==> If you received this message after a local installer file has been spotted,\n"\
                 "\t\t  please delete that file first and run this script again :)"
             return 1
         fi
     else
-        err "Not able to verify! »${abs_filepath}« not present."
+        err "Not able to verify! \"${abs_filepath}\" not present."
         return 1
     fi
+}
+
+
+### Verify Quartus installer
+#
+# Same here: often used :D
+#
+function verify_qinstaller() {
+    verify_file "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}"
 }
 
 
@@ -283,21 +320,27 @@ function verify_file() {
 # IMPORTANT: Keeping things simple, it will only select the first match it spotted!
 #
 function locate_qinstaller() {
-    info "Please wait, investigating »/« for a suitable installer already present anywhere ..."
+    info "Please wait, investigating \"/\" for a suitable installer already present anywhere ..."
     q_inst="$(find / -name ${Q_INSTALLER} -type f 2> /dev/null | head -n 1)"
     if [ -f "${q_inst}" ]; then
         info "Found an installer candidate ..."
-        q_filesize_bytes="$(du ${q_inst} | grep -oP '^[0-9]+')"
-        [ $q_filesize_bytes -ge 16000 ] &&\
-        ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
-        Q_INSTALLER_ABS_PATH="${q_inst}" ||\
-        (warning "Installer candidate's file size is too small for being intact!" &&\
-        info "Murmle, murmle! Trying to download from Intel instead ..." &&\
-        start_download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}")
+        q_filesize_bytes="$(du "${q_inst}" 2> /dev/null | grep -oP '^[0-9]+')"
+        if [ "$?" ]; then
+            [ "${q_filesize_bytes}" -ge 16000 ] &&\
+            ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
+            Q_INSTALLER_ABS_PATH="${q_inst}" ||\
+            (warning "Installer candidate's file size is too small for being intact!" &&\
+            info "Murmle, murmle! Trying to download from Intel instead ..." &&\
+            download_qinstaller)
+        else
+            err "Could not determine the file size (maybe this is a permission issue)!"
+            info "Skip. Trying to download from Intel instead ..."
+            download_qinstaller
+        fi
     else
         info "No Quartus installer seems present on your system.\n"\
             "\t\tTrying to download it from Intel ..."
-        start_download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}"
+        download_qinstaller
     fi
 }
 
@@ -307,13 +350,13 @@ function locate_qinstaller() {
 function locate_qlicense() {
     LICENSE_ABS_PATH="$(find ${HOME} -maxdepth 3 -name *_License.dat -type f 2> /dev/null | head -n 1)"
     [ -f "${LICENSE_ABS_PATH}" ] &&\
-    ok "Found license key for Questa at »${LICENSE_ABS_PATH}«." ||\
+    ok "Found license key for Questa at \"${LICENSE_ABS_PATH}\"." ||\
     (err "Could not find any license key for Questa." &&\
     info "If you are intending to run Questa, this will be required!\n"\
         "\t\tIn case you have one, ideally place it inside a hidden\n"\
-        "\t\tfolder in your home dir (i.e. »${HOME}/.licenses/«).\n"\
+        "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n"\
         "\t ==> IMPORTANT: Your license can only be found if it has its default name!\n"\
-        "\t (i.e. »LR-123456_License.dat«)\n" &&\
+        "\t (i.e. \"LR-123456_License.dat\")\n" &&\
     return 1)
 }
 
@@ -321,7 +364,7 @@ function locate_qlicense() {
 ### Launch the actual Intel Quartus installer
 #
 function run_qinstaller() {
-    clear
+    echo ""
     info "PLEASE NOTICE:\n"\
         "\tAt the next step, the Intel Quartus installer will be launched.\n"\
         "\tYou can use it as you'd regularly do, choosing the Quartus components you need.\n\n"\
@@ -332,17 +375,20 @@ function run_qinstaller() {
         "\tcontinue and do all the rest for you as soon as the Quartus installer has done its job.\n"\
         "\t ==> First, make sure to select the checkbox regarding Intel's EULA!\n"
 
-    if [ "$(basename ${SHELL})" == "bash" ]; then
-        read -p "Got it! [Enter]: " choice
-    elif [ "$(basename ${SHELL})" == "zsh" ]; then
-        read "choice?Got it! [Enter]: "
+    if [ "$(basename "${SHELL}")" == "bash" ]; then
+        read -p 'Got it! [Enter]: ' choice
+    elif [ "$(basename "${SHELL}")" == "zsh" ]; then
+        # Quick fix for below FIXME:
+        echo -e "\tGot it! [Enter]:"
+        read
+        # FIXME: Don't getting why this does not work in script ...
+        # read "choice?Got it! [Enter]: ""
     fi
 
     info "Making installer executable first ..."
     chmod +x "${Q_INSTALLER_ABS_PATH}"
     info "Please wait, launching Quartus installer. Continue at its window!\n"
     "${SHELL}" -c "${Q_INSTALLER_ABS_PATH}"
-    #return "$?"     # Exit with Quartus installer's status ('0' if successful ;))
 }
 
 
@@ -354,7 +400,7 @@ function run_preinstaller() {
     check_sudo &&\
     locate_qlicense &&\
     locate_qinstaller &&\
-    verify_file "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}" &&\
+    verify_qinstaller &&\
     run_qinstaller &&\
     run_postinstaller
 }
@@ -363,10 +409,11 @@ function run_preinstaller() {
 ### Run actual post-install assistant
 #
 function run_postinstaller() {
-    info "Starting post-installation.\n"\
+    echo ""
+    info "Starting post-installation:\n"\
         "\tSome of the following steps you will need to confirm with your password.\n"\
         "\tPlease enter it if prompted for.\n"\
-        "\t ==> On most systems, nothing is echoed for security reasons!\n"
+        "\t ==> On most systems, nothing is echoed due to security reasons!\n"
 
     relocate_qrootdir &&\
     (create_quartus_launcher;
@@ -374,7 +421,8 @@ function run_postinstaller() {
     # TODO:
     # fetch_icons;
     update_envvars;
-    # create_mimetypes # TODO - optional
+    # TODO:
+    # create_mimetypes;
     create_udevrules)
 }
 
@@ -382,7 +430,7 @@ function run_postinstaller() {
 ### Move Quartus' root dir to another (and more adequate) place
 #
 function relocate_qrootdir() {
-    q_dir="$(find ${HOME} -name ${Q_DIRNAME} -type d | head -n 1)"
+    q_dir="$(find "${HOME}" -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
 
     if [ -d "${q_dir}" ]; then
         info "Moving ${q_dir} to ${Q_ROOTDIR} ..."
@@ -390,11 +438,11 @@ function relocate_qrootdir() {
         info "Making root the owner of Quartus ..." &&\
         sudo chown -R root:root "${Q_ROOTDIR}/${Q_DIRNAME}" &&\
         ok "Successfully relocated Quartus." ||\
-        (err "Something went wrong moving Quartus to »${Q_ROOTDIR}/«!" &&\
+        (err "Something went wrong moving Quartus to \"${Q_ROOTDIR}/\"!" &&\
         return 1)
     else
-        err "Could not find »${Q_DIRNAME}« program folder!"
-        info "Please make sure it is stored inside »${HOME}/«."
+        err "Could not find \"${Q_DIRNAME}\" program folder!"
+        info "Please make sure it is stored inside \"${HOME}/\"."
         return 1
     fi
 }
@@ -408,7 +456,7 @@ function create_quartus_launcher() {
             "\nType=Application"\
             "\nName=Quartus"\
             "\nTerminal=false"\
-            "\nExec=${Q_ROOTDIR}/${Q_DIRNAME}/23.1std.1/quartus/bin/quartus --64bit %f"\
+            "\nExec=${Q_ROOTDIR}/${Q_DIRNAME}/23.1std/quartus/bin/quartus --64bit %f"\
             "\nComment=Intel Quartus Prime Lite 23.1.1"\
             "\nIcon=${HOME}/.local/share/icons/quartus/marble.svg"\
             "\nCategories=Education;Development;"\
@@ -431,7 +479,7 @@ function create_questa_launcher() {
             "\nName=Questa"\
             "\nTerminal=false"\
             "\nExec=env LM_LICENSE_FILE=${LICENSE_ABS_PATH} "\
-            "${Q_ROOTDIR}/${Q_DIRNAME}/23.1std.1/questa_fse/bin/vsim -gui %f"\
+            "${Q_ROOTDIR}/${Q_DIRNAME}/23.1std/questa_fse/bin/vsim -gui %f"\
             "\nComment=Intel Questa Vsim (Prime Lite 23.1.1)"\
             "\nIcon=${HOME}/.local/share/icons/quartus/gtkwave.svg"\
             "\nCategories=Education;Development;"\
@@ -456,11 +504,11 @@ function create_questa_launcher() {
 function update_envvars() {
     shellrc="${HOME}/.$(basename ${SHELL})rc"
     info "Updating Quartus' environment variables in ${shellrc} ..."
-    sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" &&\
-    sed -i '/LM_LICENSE_FILE/d' "${shellrc}" &&\
+    sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" 2> /dev/null &&\
+    sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null &&\
     echo -e "\n#Intel FPGA environment (Quartus Prime Lite)"\
             "\nexport LM_LICENSE_FILE='${LICENSE_ABS_PATH}'"\
-            "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/${Q_DIRNAME}/23.1std.1/quartus/sopc_builder/bin'"\
+            "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/${Q_DIRNAME}/23.1std/quartus/sopc_builder/bin'"\
     >> "${shellrc}" &&\
     ok "Updated Quartus' environment variables." ||\
     (err "Someting went wrong when trying to update Quartus' environment variables!" &&\
@@ -487,7 +535,7 @@ function create_udevrules() {
 }
 
 
-###### MAIN ######
-echo ""
-info "*** Welcome to Jo's FPGA Helper ***\n"
-#run_preinstaller
+### RUN THIS SKRIPT ###
+clear
+info "${HELLO_MSG}"
+run_preinstaller
