@@ -52,10 +52,10 @@ QUARTUS_ICON="marble.svg"
 Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
 Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
 I_PORTAL_URL="https://cdrdv2.intel.com"
-I_FETCH_STR_GET="getContent"
-I_FETCH_STR_ACC="acceptEula"
-Q_INSTALLER_URL_ACC="${I_PORTAL_URL}/v1/dl/${I_FETCH_STR_ACC}/825277/825299?filename=${Q_INSTALLER}"
-Q_INSTALLER_URL_GET="${I_PORTAL_URL}/v1/dl/${I_FETCH_STR_GET}/825277/825299?filename=${Q_INSTALLER}"
+# Q_INSTALLER_URL_GET="${I_PORTAL_URL}/v1/dl/getContent/825277/825299?filename=${Q_INSTALLER}"
+# Q_INSTALLER_URL_ACC="${I_PORTAL_URL}/v1/dl/acceptEula/825277/825299?filename=${Q_INSTALLER}"
+# Q_INSTALLER_URL="${I_PORTAL_URL}/v1/dl/downloadStart/825277/825299?filename=${Q_INSTALLER}"
+Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
 
 G_URL="https://github.com"
 G_ICON_REPO="${G_URL}/zayronxio/Elementary-KDE-Icons.git"
@@ -66,6 +66,7 @@ Q_INSTALLER_ABS_PATH="${TMP_DOWNLOAD_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
 Q_ROOTDIR="/opt/fpga_test/${Q_DIRNAME}"  # FIXME: Remove "/fpga_test" after testing!
 
+# FIXME: Remove after testing!
 # By default, the license key file is obtained by this setup script ('locate_qlicense').
 # LICENSE_FILE="LR-202898_License.dat"
 # LICENSE_ABS_PATH="${HOME}/.licenses/intel/${LICENSE_FILE}"
@@ -211,6 +212,12 @@ function check_sudo() {
 
 ### Check whether internet and desired domain can be connected to
 #
+# HTTP responses between 100-399 are fine, as well as
+# server error responses between 500-599.
+# Why? In some cases, we won't get a successful response because
+# we are not allow to access the resource directly, but we now
+# know that it's reachable (and this is the purpose of this function).
+#
 function is_service_available() {
     service_url="$1"
     info "Checking internet connectivity ..."
@@ -218,19 +225,40 @@ function is_service_available() {
     if [ ! "$(ping -c 5 1.1.1.1 2>&1 > /dev/null)" ]; then
         ok "Internet connected."
         info "Looking out for ${service_url} ..."
-        http_response="$(curl -sI ${service_url} | head -n 1 | grep -so [1-5][0-9][0-9])"
+        http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so [1-5][0-9][0-9])"
 
-        # HTTP responses between 200-299 are fine, but
-        # redirections (300-399) aren't accepted here due to security reasons:
-        if [ "$(echo ${http_response} | grep -c [2][0-9][0-9])" -eq 1 ]; then
-            ok "Connected to ${service_url}"
-            info "HTTP status: ${http_response}"
-            return 0
-        else
-            err "Trouble connecting to ${service_url}!"
-            info "HTTP status: ${http_response}"
-            return 1
-        fi
+        case "${http_response}" in
+            [1-2][0-9][0-9])
+                ok "Service replied."
+                info "HTTP status: ${http_response}"
+                return 0
+                ;;
+            [3][0-9][0-9])
+                warning "Service replied, but would redirect!"
+                info "HTTP status: ${http_response}"
+                return 0
+                ;;
+            [5][0-9][0-9])
+                warning "Service replied, but with error!"
+                info "HTTP status: ${http_response}"
+                return 0
+                ;;
+            *)
+                err "Troubles reaching service!"
+                info "HTTP status: ${http_response}"
+                return 1
+                ;;
+        esac
+
+        # if [ "$(echo ${http_response} | grep -c [2][0-9][0-9])" -eq 1 ]; then
+            # ok "Connected to ${service_url}"
+            # info "HTTP status: ${http_response}"
+            # return 0
+        # else
+            # err "Trouble connecting to ${service_url}!"
+            # info "HTTP status: ${http_response}"
+            # return 1
+        # fi
     else
         err "Sorry, no internet connection!"
         info "At least no echo from Cloudflare's DNS after five attempts."
@@ -241,40 +269,37 @@ function is_service_available() {
 
 ### Download a file from a given URL
 #
-# CAUTION: ${uri} must contain an absolute path to a file!
+# CAUTION: ${local_uri} must contain an absolute path to a file!
 #   Examples: "/home/user/foo.txt", "/tmp/foo/bar.png"
 #
-# Usage: start_download "https://example.com/file.txt" "/path/to/target/file.txt"
+# Usage, briefly explained:
+#   a) download "https://resource.net/file.txt" "/path/to/target/file.txt"
+# 
 #
-function start_download() {
-    url="$1"
-    uri="$2"
-    service_domain="$(echo ${url} | grep -oP '^(https?://[^/]+)')"
+function download() {
+    prim_url="$1"
+    local_uri="$2"
+    service_url="$3"
 
-    download_dir="${uri%/*}"
-    download_file="$(basename ${uri})"
+    [ -z "${service_url}" ] &&\
+    service_domain="$(echo "${prim_url}" | grep -oP '^(https?://[^/]+)')"
+
+    download_dir="${local_uri%/*}"
+    download_file="$(basename "${local_uri}")"
     is_service_available "${service_domain}"
 
-    # If function is called inside condition brackets,
-    # STDOUT seems blocked.
     if [ "$?" ]; then
         if [ ! -d "${download_dir}" ]; then
             info "Creating ${download_dir} ..."
             mkdir -p "${download_dir}"
         fi
 
-        info "Now downloading ${url} ...\n"
+        info "Now downloading ${prim_url} ...\n"
+        curl -L -o "${local_uri}" "${prim_url}"
 
-        # FIX: We have to test with 'curl -I ...' beforehand which
-        #   HTTP status we get when using one of the possible URLs.
-        #   If we get a redirection with the first URL and curl's process ends,
-        #   we have to use the second URL and try again.
-        curl -L -o "${uri}" "${url}"
-
-        # FIXME: Investigate curl's exit code by detail!
         # Only for debugging:
         curl_exit_code="$?"
-        info "Curl exit code: ${curl_exit_code}"
+        # info "Curl exit code: ${curl_exit_code}"
 
         if [ "${curl_exit_code}" ]; then
             echo ""
@@ -294,10 +319,8 @@ function start_download() {
 
 ### Download Quartus installer
 #
-# Because it's used quite often ;)
-#
 function download_qinstaller() {
-    start_download "${Q_INSTALLER_URL_GET}" "${Q_INSTALLER_ABS_PATH}"
+    download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}"
 }
 
 
@@ -318,15 +341,19 @@ function download_icons() {
 }
 
 
-### I.e. verify Intel's installer script is intact
+### Validate a file's checksum
 #
-function verify_file() {
+# Using SHA1, because ... icecream.
+# Seriously, for the scope of this
+# helper script it's sufficient I guess,
+# as Intel only provides an SHA1 checksum.
+#
+function verify() {
     abs_filepath="$1"
     sha1_checksum_expected="$2"
     file_to_verify="$(basename "${abs_filepath}")"
 
     if [ -f "${abs_filepath}" ]; then
-        # ok "File found at\n\t\t\"${abs_filepath}\"."
         info "Checking file integrity ..."
         if [ "$(sha1sum "${abs_filepath}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" 2>&1 > /dev/null ]; then
             ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
@@ -346,16 +373,16 @@ function verify_file() {
 
 ### Verify Quartus installer
 #
-# Same here: often used :D
-#
 function verify_qinstaller() {
-    verify_file "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}"
+    verify "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}"
 }
 
 
 ### Maybe the user already got the Quartus installer
 #
-# IMPORTANT: Keeping things simple, it will only select the first match it spotted!
+# IMPORTANT:
+# Keeping things simple, it will only select
+# the first match it spotted!
 #
 function locate_qinstaller() {
     info "Please wait, investigating \"/\" for a suitable installer already present anywhere ..."
@@ -399,28 +426,28 @@ function locate_qlicense() {
 }
 
 
-### Launch the actual Intel Quartus installer
+### Launch the actual Quartus installer
 #
 function run_qinstaller() {
     echo ""
     info "PLEASE NOTICE:\n"\
-        "\tAt the next step, the Intel Quartus installer will be launched.\n"\
-        "\tYou can use it as you'd regularly do, choosing the Quartus components you need.\n\n"\
+        "\tAt next, the Intel Quartus installer will be launched.\n"\
+        "\tYou can use it as you'd regularly do, choosing the FPGA components you need.\n\n"\
         "\tIMPORTANT: Please, leave the install paths and any related settings at their defaults!\n"\
-        "\t ==> Otherwise, this helper script won't be able to find the\n"\
-        "\t     program's parts which would prevent post-install assistance!\n\n"\
+        "\t ==> Otherwise, this helper script might not be able to find the\n"\
+        "\t     directory containing Quartus, preventing post-install assistance!\n\n"\
         "\tAfter the installer has finished to download all selected components, this script will\n"\
-        "\tcontinue and do all the rest for you as soon as the Quartus installer has done its job.\n"\
-        "\t ==> First, make sure to select the checkbox regarding Intel's EULA!\n"
+        "\tcontinue and do all the rest for you as soon as Quartus installer has done its job and quit.\n"\
+        "\t ==> Make sure to select the checkbox regarding Intel's EULA!\n"
 
     if [ "$(basename "${SHELL}")" == "bash" ]; then
-        read -p 'Got it! [Enter]: ' choice
+        read -p 'Got it! [Enter]: ' gotit
     elif [ "$(basename "${SHELL}")" == "zsh" ]; then
-        # Quick fix for below FIXME:
+        # FIXME: Don't getting why this does not work in script ...
+        # read "gotit?Got it! [Enter]: ""
+        # Dirty fix:
         echo -e "\tGot it! [Enter]:"
         read
-        # FIXME: Don't getting why this does not work in script ...
-        # read "choice?Got it! [Enter]: ""
     fi
 
     info "Making installer executable first ..."
@@ -582,4 +609,4 @@ function create_udevrules() {
 ### RUN THIS SKRIPT ###
 clear
 info "${HELLO_MSG}"
-#run_preinstaller
+run_preinstaller
