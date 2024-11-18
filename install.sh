@@ -51,17 +51,12 @@ QUARTUS_ICON="marble.svg"
 
 Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
 Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
-I_PORTAL_URL="https://cdrdv2.intel.com"
-# Q_INSTALLER_URL_GET="${I_PORTAL_URL}/v1/dl/getContent/825277/825299?filename=${Q_INSTALLER}"
-# Q_INSTALLER_URL_ACC="${I_PORTAL_URL}/v1/dl/acceptEula/825277/825299?filename=${Q_INSTALLER}"
-# Q_INSTALLER_URL="${I_PORTAL_URL}/v1/dl/downloadStart/825277/825299?filename=${Q_INSTALLER}"
 Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
 
-G_URL="https://github.com"
-G_ICON_REPO="${G_URL}/zayronxio/Elementary-KDE-Icons.git"
+G_ICON_REPO="https://github.com/zayronxio/Elementary-KDE-Icons.git"
 
-TMP_DOWNLOAD_DIR="/tmp/intel-setup"
-Q_INSTALLER_ABS_PATH="${TMP_DOWNLOAD_DIR}/${Q_INSTALLER}"
+TMP_SETUP_DIR="/tmp/fpga-setup"
+Q_INSTALLER_LOCAL_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 
 Q_DIRNAME="intelFPGA_lite"
 Q_ROOTDIR="/opt/fpga_test/${Q_DIRNAME}"  # FIXME: Remove "/fpga_test" after testing!
@@ -69,7 +64,7 @@ Q_ROOTDIR="/opt/fpga_test/${Q_DIRNAME}"  # FIXME: Remove "/fpga_test" after test
 # FIXME: Remove after testing!
 # By default, the license key file is obtained by this setup script ('locate_qlicense').
 # LICENSE_FILE="LR-202898_License.dat"
-# LICENSE_ABS_PATH="${HOME}/.licenses/intel/${LICENSE_FILE}"
+# Q_LICENSE_LOCAL_URI="${HOME}/.licenses/intel/${LICENSE_FILE}"
 
 # Color codes for text output
 RED_BOLD="\e[1;31m"
@@ -102,7 +97,7 @@ function ok() {
 
 ### Warning messages to STERR (2)
 #
-function warning() {
+function warn() {
     echo -e "${GREY}[${ENDCOLOR}"\
             "${YELLOW_BOLD}WARNING${ENDCOLOR}"\
             "${GREY}]${ENDCOLOR}"\
@@ -146,7 +141,7 @@ function check_distro() {
             return 0
             ;;
         *)
-            warning "${DISTRO} has not been tested to work with this script."
+            warn "${DISTRO} has not been tested to work with this script."
             info "You may proceed, but at no guarantee that it will work!"
 
             if [ "$(basename ${SHELL})" == "bash" ]; then
@@ -218,11 +213,11 @@ function check_sudo() {
 # we are not allow to access the resource directly, but we now
 # know that it's reachable (and this is the purpose of this function).
 #
-function is_service_available() {
+function is_webresource_avail() {
     service_url="$1"
     info "Checking internet connectivity ..."
 
-    if [ ! "$(ping -c 5 1.1.1.1 2>&1 > /dev/null)" ]; then
+    if [ "$(ping -c 3 1.1.1.1 2>&1 > /dev/null)" ]; then
         ok "Internet connected."
         info "Looking out for ${service_url} ..."
         http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so [1-5][0-9][0-9])"
@@ -234,34 +229,23 @@ function is_service_available() {
                 return 0
                 ;;
             [3][0-9][0-9])
-                warning "Service replied, but would redirect!"
+                warn "Service replied, but would redirect!"
                 info "HTTP status: ${http_response}"
                 return 0
                 ;;
             [5][0-9][0-9])
-                warning "Service replied, but with error!"
+                warn "Service replied, but with error!"
                 info "HTTP status: ${http_response}"
                 return 0
                 ;;
             *)
                 err "Troubles reaching service!"
-                info "HTTP status: ${http_response}"
                 return 1
                 ;;
         esac
-
-        # if [ "$(echo ${http_response} | grep -c [2][0-9][0-9])" -eq 1 ]; then
-            # ok "Connected to ${service_url}"
-            # info "HTTP status: ${http_response}"
-            # return 0
-        # else
-            # err "Trouble connecting to ${service_url}!"
-            # info "HTTP status: ${http_response}"
-            # return 1
-        # fi
     else
         err "Sorry, no internet connection!"
-        info "At least no echo from Cloudflare's DNS after five attempts."
+        info "At least no echo from Cloudflare's DNS after three attempts."
         return 1
     fi
 }
@@ -272,30 +256,28 @@ function is_service_available() {
 # CAUTION: ${local_uri} must contain an absolute path to a file!
 #   Examples: "/home/user/foo.txt", "/tmp/foo/bar.png"
 #
-# Usage, briefly explained:
-#   a) download "https://resource.net/file.txt" "/path/to/target/file.txt"
-# 
+# Usage:
+#   download "https://resource.net/file.txt" "/path/to/target/file.txt"
 #
 function download() {
-    prim_url="$1"
+    download_url="$1"
     local_uri="$2"
-    service_url="$3"
-
-    [ -z "${service_url}" ] &&\
-    service_domain="$(echo "${prim_url}" | grep -oP '^(https?://[^/]+)')"
+    service_domain="$(echo "${download_url}" | grep -oP '^(https?://[^/]+)')"
 
     download_dir="${local_uri%/*}"
     download_file="$(basename "${local_uri}")"
-    is_service_available "${service_domain}"
+    is_webresource_avail "${download_url}"
+    echo Exit status ping-test: $?
 
+    # FIXME: If connectivity check fails, download still starting!
     if [ "$?" ]; then
         if [ ! -d "${download_dir}" ]; then
             info "Creating ${download_dir} ..."
             mkdir -p "${download_dir}"
         fi
 
-        info "Now downloading ${prim_url} ...\n"
-        curl -L -o "${local_uri}" "${prim_url}"
+        info "Now downloading from \"${service_domain}\" ...\n"
+        curl -L -o "${local_uri}" "${download_url}"
 
         # Only for debugging:
         curl_exit_code="$?"
@@ -306,8 +288,7 @@ function download() {
             ok "Download of \"${download_file}\" has finished."
             return 0
         else
-            err "Download has failed :/"
-            info "Maybe network connection has been interrupted."
+            err "Download had hickups!"
             return 1
         fi
     else
@@ -320,15 +301,15 @@ function download() {
 ### Download Quartus installer
 #
 function download_qinstaller() {
-    download "${Q_INSTALLER_URL}" "${Q_INSTALLER_ABS_PATH}"
+    download "${Q_INSTALLER_URL}" "${Q_INSTALLER_LOCAL_URI}"
 }
 
 
 ### Clone icon repository from Github to user's icon dir
 #
-function download_icons() {
+function setup_icons() {
     if [ ! -d "${LOCAL_ICONDIR}/elementary-kde" ]; then
-        is_service_available "${G_URL}" &&\
+        is_webresource_avail "${G_ICON_REPO}" &&\
         mkdir -p "${LOCAL_ICONDIR}" &&\
         info "Please wait, downloading icon set from Github ..." &&\
         git clone "${G_ICON_REPO}" "${LOCAL_ICONDIR}/elementary-kde" 2>&1 > /dev/null &&\
@@ -341,7 +322,7 @@ function download_icons() {
 }
 
 
-### Validate a file's checksum
+### Verify a file's checksum
 #
 # Using SHA1, because ... icecream.
 # Seriously, for the scope of this
@@ -349,23 +330,23 @@ function download_icons() {
 # as Intel only provides an SHA1 checksum.
 #
 function verify() {
-    abs_filepath="$1"
+    local_uri="$1"
     sha1_checksum_expected="$2"
-    file_to_verify="$(basename "${abs_filepath}")"
+    file_to_verify="$(basename "${local_uri}")"
 
-    if [ -f "${abs_filepath}" ]; then
+    if [ -f "${local_uri}" ]; then
         info "Checking file integrity ..."
-        if [ "$(sha1sum "${abs_filepath}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" 2>&1 > /dev/null ]; then
+        if [ "$(sha1sum "${local_uri}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" 2>&1 > /dev/null ]; then
             ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
             return 0
         else
-            warning "Caution: \"${abs_filepath}\"\n\t\tmay be corrupted and should not be used!"
+            warn "Caution: \"${local_uri}\"\n\t\tmay be corrupted and should not be used!"
             info " ==> If you received this message after a local installer file has been spotted,\n"\
                 "\t\t  please delete that file first and run this script again :)"
             return 1
         fi
     else
-        err "Not able to verify! \"${abs_filepath}\" not present."
+        err "Not able to verify! \"${local_uri}\" not present."
         return 1
     fi
 }
@@ -374,7 +355,7 @@ function verify() {
 ### Verify Quartus installer
 #
 function verify_qinstaller() {
-    verify "${Q_INSTALLER_ABS_PATH}" "${Q_INSTALLER_CHECKSUM}"
+    verify "${Q_INSTALLER_LOCAL_URI}" "${Q_INSTALLER_CHECKSUM}"
 }
 
 
@@ -386,15 +367,15 @@ function verify_qinstaller() {
 #
 function locate_qinstaller() {
     info "Please wait, investigating \"/\" for a suitable installer already present anywhere ..."
-    q_inst="$(find / -name ${Q_INSTALLER} -type f 2> /dev/null | head -n 1)"
+    q_inst="$(find / -name "${Q_INSTALLER}" -type f 2> /dev/null | head -n 1)"
     if [ -f "${q_inst}" ]; then
-        info "Found an installer candidate ..."
+        info "Found installer candidate ..."
         q_filesize_bytes="$(du "${q_inst}" 2> /dev/null | grep -oP '^[0-9]+')"
         if [ "$?" ]; then
             [ "${q_filesize_bytes}" -ge 16000 ] &&\
             ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
-            Q_INSTALLER_ABS_PATH="${q_inst}" ||\
-            (warning "Installer candidate's file size is too small for being intact!" &&\
+            Q_INSTALLER_LOCAL_URI="${q_inst}" ||\
+            (warn "Installer candidate's file size is too small for being intact!" &&\
             info "Murmle, murmle! Trying to download from Intel instead ..." &&\
             download_qinstaller)
         else
@@ -413,9 +394,9 @@ function locate_qinstaller() {
 ### Check if user already got a license key for Questa Vsim
 #
 function locate_qlicense() {
-    LICENSE_ABS_PATH="$(find ${HOME} -maxdepth 3 -name *_License.dat -type f 2> /dev/null | head -n 1)"
-    [ -f "${LICENSE_ABS_PATH}" ] &&\
-    ok "Found license key for Questa at \"${LICENSE_ABS_PATH}\"." ||\
+    Q_LICENSE_LOCAL_URI="$(find "${HOME}" -maxdepth 3 -name *_License.dat -type f 2> /dev/null | head -n 1)"
+    [ -f "${Q_LICENSE_LOCAL_URI}" ] &&\
+    ok "Found license key for Questa at \"${Q_LICENSE_LOCAL_URI}\"." ||\
     (err "Could not find any license key for Questa." &&\
     info "If you are intending to run Questa, this will be required!\n"\
         "\t\tIn case you have one, ideally place it inside a hidden\n"\
@@ -451,9 +432,9 @@ function run_qinstaller() {
     fi
 
     info "Making installer executable first ..."
-    chmod +x "${Q_INSTALLER_ABS_PATH}"
+    chmod +x "${Q_INSTALLER_LOCAL_URI}"
     info "Please wait, launching Quartus installer. Continue at its window!\n"
-    "${SHELL}" -c "${Q_INSTALLER_ABS_PATH}"
+    "${SHELL}" -c "${Q_INSTALLER_LOCAL_URI}"
 }
 
 
@@ -484,11 +465,13 @@ function run_postinstaller() {
     relocate_qrootdir &&\
     (create_quartus_launcher;
     create_questa_launcher;
-    download_icons;
+    setup_icons;
     update_envvars;
     create_udevrules)
     # TODO:
     # create_mimetypes;)
+    
+    echo ""
     info "If you can see only green \"OK\" feedback below post-install headline\n"\
         "\t\tyou are now ready to use your Intel FPGA suite :)\n"\
         "\t\t ==> Otherwise, please investigate the error messages\n"\
@@ -513,7 +496,7 @@ function relocate_qrootdir() {
         return 1)
     else
         err "Could not find \"${Q_DIRNAME}\" program folder!"
-        info "Please make sure it is stored inside \"${HOME}/\"."
+        info " ==> Most likely, Quartus installer has quit without installing anything."
         return 1
     fi
 }
@@ -549,7 +532,7 @@ function create_questa_launcher() {
             "\nType=Application"\
             "\nName=Questa"\
             "\nTerminal=false"\
-            "\nExec=env LM_LICENSE_FILE=${LICENSE_ABS_PATH}"\
+            "\nExec=env LM_LICENSE_FILE=${Q_LICENSE_LOCAL_URI}"\
             "${Q_ROOTDIR}/23.1std/questa_fse/bin/vsim -gui %f"\
             "\nComment=Intel Questa Vsim (Prime Lite 23.1.1)"\
             "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/gtkwave.svg"\
@@ -578,7 +561,7 @@ function update_envvars() {
     sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" 2> /dev/null &&\
     sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null &&\
     echo -e "\n#Intel FPGA environment (Quartus Prime Lite)"\
-            "\nexport LM_LICENSE_FILE='${LICENSE_ABS_PATH}'"\
+            "\nexport LM_LICENSE_FILE='${Q_LICENSE_LOCAL_URI}'"\
             "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin'"\
     >> "${shellrc}" &&\
     ok "Updated Quartus' environment variables." ||\
@@ -592,14 +575,14 @@ function update_envvars() {
 function create_udevrules() {
     udev_rulepath="/etc/udev/rules.d"
     udev_file="51-usbblaster.rules"
-    udev_abs_filepath="${udev_rulepath}/${udev_file}"
+    udev_local_uri="${udev_rulepath}/${udev_file}"
     info "Creating new udev rules for USB-blaster ..."
     echo -e "SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6001\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6002\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6003\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6010\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6810\", MODE=\"0666\""\
-    | sudo tee "${udev_abs_filepath}" > /dev/null &&\
+    | sudo tee "${udev_local_uri}" > /dev/null &&\
     ok "Rules have been added." ||\
     (err "Failed to create udev rules!" &&\
     return 1)
