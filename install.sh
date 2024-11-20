@@ -36,12 +36,15 @@
 #   ==> https://github.com/zayronxio/Elementary-KDE-Icons
 #
 
-HELLO_MSG="~~~ Welcome to Jo's FPGA Helper ~~~\n"
+HELLO_MSG="\n\t\t~~~ Welcome to Jo's FPGA Helper ~~~\n"
 trap "echo -e \"\n\t\t~~~ FPGA Helper quit. Bye for now! :) ~~~\n\"" EXIT
 
-DISTRO="$(lsb_release -si)"
+# 'lsb_release' command is too rare for serving as reliable distro id tool.
+# DISTRO="$(lsb_release -si)"
+DISTRO="$(grep -oP '(?<=")[^ ]*' /etc/os-release | head -n 1)"
 
 LOCAL_APPDIR="${HOME}/.local/share/applications"
+LOCAL_MIMEDIR="${HOME}/.local/share/mime"
 QUARTUS_DESKTOP_LAUNCHER="com.intel.QuartusPrimeLite_23.1.1.desktop"
 QUESTA_DESKTOP_LAUNCHER="com.intel.QuestaVsim_23.1.1.desktop"
 
@@ -95,7 +98,7 @@ function ok() {
 }
 
 
-### Warning messages to STERR (2)
+### Warning messages to STDERR (2)
 #
 function warn() {
     echo -e "${GREY}[${ENDCOLOR}"\
@@ -105,25 +108,25 @@ function warn() {
 }
 
 
-### Info messages to STOUT (1)
+### Info messages to STDOUT (1)
 #
 function info() {
     echo -e "\t\t${LIGHT_GREY}$*${ENDCOLOR}"
 }
 
 
-### Check shell compatibility
+### Check login shell compatibility
 #
 # Only BASH and ZSH are supported.
 #
 function check_shell() {
     case "$(basename ${SHELL})" in
         bash|zsh)
-            ok "Your shell is \"${SHELL}\"."
+            ok "Your login shell is \"${SHELL}\"."
             return 0
             ;;
         *)
-            err "Sorry, your shell \"${SHELL}\" is not supported by this script!"
+            err "Sorry, your login shell \"${SHELL}\" is not supported by this script!"
             info "Please use ZSH or BASH instead.\n"\
                 "\t ==> By issuing 'chsh /path/to/shell' you can switch easily :)\n"
             return 1
@@ -143,13 +146,8 @@ function check_distro() {
         *)
             warn "${DISTRO} has not been tested to work with this script."
             info "You may proceed, but at no guarantee that it will work!"
-
-            if [ "$(basename ${SHELL})" == "bash" ]; then
-                read -p "Is this okay? [y/N]: " choice
-            elif [ "$(basename ${SHELL})" == "zsh" ]; then
-                read "choice?Is this okay? [y/N]: "
-            fi
-
+            read -p "Is this okay? [y/N]: " choice
+            
             case "${choice}" in
                 y|Y|yes|Yes|YES)
                     info "Continuing this helper script without guarantee ..."
@@ -196,8 +194,8 @@ function check_sudo() {
             ;;
     esac
 
-    [ "$(id -Gn | grep -c ${sudoers_group})" > /dev/null ] &&\
-    ok "Current user \"${USER}\" is allowed to perform adminstrative tasks." ||\
+    [ "$(id -Gn | grep -c "${sudoers_group}")" > /dev/null ] &&\
+    ok "Current user \"${USER}\" is allowed to perform administrative tasks." ||\
     (err "Sorry, user ${USER} does not have sufficient permissions to run this script!" &&\
     info "Please make sure you may gain root privileges first, then try again.\n"\
         "\t\t==> Otherwise please contact your system administration." &&\
@@ -216,20 +214,29 @@ function check_sudo() {
 function is_webresource_avail() {
     service_url="$1"
     info "Checking internet connectivity ..."
+    # ping -c 3 1.1.1.1 2>&1 > /dev/null
+    # For any reason, the above statement doesn't mute ping's output,
+    # but this awful solution works:
+    ping -c 3 1.1.1.1 2> /dev/null > /dev/null
 
-    if [ "$(ping -c 3 1.1.1.1 2>&1 > /dev/null)" ]; then
+    if [ "$?" -eq 0 ]; then
         ok "Internet connected."
         info "Looking out for ${service_url} ..."
         http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so [1-5][0-9][0-9])"
 
         case "${http_response}" in
-            [1-2][0-9][0-9])
-                ok "Service replied."
+            [1][0-9][0-9])
+                warn "Service replied, but informational only!"
+                info "HTTP status: ${http_response}"
+                return 0
+                ;;
+            [2][0-9][0-9])
+                ok "Service replied successfully."
                 info "HTTP status: ${http_response}"
                 return 0
                 ;;
             [3][0-9][0-9])
-                warn "Service replied, but would redirect!"
+                warn "Service replied, but will redirect!"
                 info "HTTP status: ${http_response}"
                 return 0
                 ;;
@@ -239,7 +246,7 @@ function is_webresource_avail() {
                 return 0
                 ;;
             *)
-                err "Troubles reaching service!"
+                err "Client: Troubles reaching service!"
                 return 1
                 ;;
         esac
@@ -267,10 +274,8 @@ function download() {
     download_dir="${local_uri%/*}"
     download_file="$(basename "${local_uri}")"
     is_webresource_avail "${download_url}"
-    echo Exit status ping-test: $?
 
-    # FIXME: If connectivity check fails, download still starting!
-    if [ "$?" ]; then
+    if [ "$?" -eq 0 ]; then
         if [ ! -d "${download_dir}" ]; then
             info "Creating ${download_dir} ..."
             mkdir -p "${download_dir}"
@@ -279,11 +284,7 @@ function download() {
         info "Now downloading from \"${service_domain}\" ...\n"
         curl -L -o "${local_uri}" "${download_url}"
 
-        # Only for debugging:
-        curl_exit_code="$?"
-        # info "Curl exit code: ${curl_exit_code}"
-
-        if [ "${curl_exit_code}" ]; then
+        if [ "$?" -eq 0 ]; then
             echo ""
             ok "Download of \"${download_file}\" has finished."
             return 0
@@ -312,7 +313,7 @@ function setup_icons() {
         is_webresource_avail "${G_ICON_REPO}" &&\
         mkdir -p "${LOCAL_ICONDIR}" &&\
         info "Please wait, downloading icon set from Github ..." &&\
-        git clone "${G_ICON_REPO}" "${LOCAL_ICONDIR}/elementary-kde" 2>&1 > /dev/null &&\
+        git clone "${G_ICON_REPO}" "${LOCAL_ICONDIR}/elementary-kde" 2> /dev/null &&\
         ok "Icons have been set up, yay :)" ||\
         (err "Something went wrong during icon setup! :/" &&\
         return 1)
@@ -371,7 +372,7 @@ function locate_qinstaller() {
     if [ -f "${q_inst}" ]; then
         info "Found installer candidate ..."
         q_filesize_bytes="$(du "${q_inst}" 2> /dev/null | grep -oP '^[0-9]+')"
-        if [ "$?" ]; then
+        if [ "$?" -eq 0 ]; then
             [ "${q_filesize_bytes}" -ge 16000 ] &&\
             ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
             Q_INSTALLER_LOCAL_URI="${q_inst}" ||\
@@ -394,15 +395,15 @@ function locate_qinstaller() {
 ### Check if user already got a license key for Questa Vsim
 #
 function locate_qlicense() {
-    Q_LICENSE_LOCAL_URI="$(find "${HOME}" -maxdepth 3 -name *_License.dat -type f 2> /dev/null | head -n 1)"
+    Q_LICENSE_LOCAL_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
     [ -f "${Q_LICENSE_LOCAL_URI}" ] &&\
     ok "Found license key for Questa at \"${Q_LICENSE_LOCAL_URI}\"." ||\
     (err "Could not find any license key for Questa." &&\
     info "If you are intending to run Questa, this will be required!\n"\
         "\t\tIn case you have one, ideally place it inside a hidden\n"\
-        "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n"\
-        "\t ==> IMPORTANT: Your license can only be found if it has its default name!\n"\
-        "\t (i.e. \"LR-123456_License.dat\")\n" &&\
+        "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
+        "\t\t ==> IMPORTANT: Your license can only be found if\n"\
+        "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n" &&\
     return 1)
 }
 
@@ -421,16 +422,7 @@ function run_qinstaller() {
         "\tcontinue and do all the rest for you as soon as Quartus installer has done its job and quit.\n"\
         "\t ==> Make sure to select the checkbox regarding Intel's EULA!\n"
 
-    if [ "$(basename "${SHELL}")" == "bash" ]; then
-        read -p 'Got it! [Enter]: ' gotit
-    elif [ "$(basename "${SHELL}")" == "zsh" ]; then
-        # FIXME: Don't getting why this does not work in script ...
-        # read "gotit?Got it! [Enter]: ""
-        # Dirty fix:
-        echo -e "\tGot it! [Enter]:"
-        read
-    fi
-
+    read -p 'Got it! [Enter]: ' gotit
     info "Making installer executable first ..."
     chmod +x "${Q_INSTALLER_LOCAL_URI}"
     info "Please wait, launching Quartus installer. Continue at its window!\n"
@@ -465,11 +457,10 @@ function run_postinstaller() {
     relocate_qrootdir &&\
     (create_quartus_launcher;
     create_questa_launcher;
+    create_qmimetypes;
     setup_icons;
     update_envvars;
     create_udevrules)
-    # TODO:
-    # create_mimetypes;)
     
     echo ""
     info "If you can see only green \"OK\" feedback below post-install headline\n"\
@@ -514,7 +505,7 @@ function create_quartus_launcher() {
             "\nComment=Intel Quartus Prime Lite 23.1.1"\
             "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/marble.svg"\
             "\nCategories=Education;Development;"\
-            "\nMimeType=application/x-qpf;application/x-qsf;application/x-qws;"\
+            "\nMimeType=application/x-qpf"\
             "\nKeywords=intel;fpga;ide;quartus;prime;lite;"\
             "\nStartupWMClass=quartus"\
     > "${LOCAL_APPDIR}/${QUARTUS_DESKTOP_LAUNCHER}" &&\
@@ -537,7 +528,7 @@ function create_questa_launcher() {
             "\nComment=Intel Questa Vsim (Prime Lite 23.1.1)"\
             "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/gtkwave.svg"\
             "\nCategories=Education;Development;"\
-            "\nMimeType=application/x-ini;application/x-mpf;"\
+            "\nMimeType=application/x-mpf;"\
             "\nKeywords=intel;fpga;ide;simulation;model;vsim;"\
             "\nStartupWMClass=Vsim"\
     > "${LOCAL_APPDIR}/${QUESTA_DESKTOP_LAUNCHER}" &&\
@@ -547,9 +538,9 @@ function create_questa_launcher() {
 }
 
 
-### Modify Questa's environment variables
+### Modify Quartus' environment variables
 #
-# Intel's Questa installer automatically creates
+# Intel's Quartus installer automatically creates
 # environment variables necessary for operation.
 #  ==> Because they have to be changed if the
 #   program's location changes, this is done by
@@ -589,7 +580,51 @@ function create_udevrules() {
 }
 
 
+### Create new MIME-type
+#
+# mime: Actual identifier of the MIME-type (i.e. 'x-qpf' for Qaurtus project files);
+# comment: Full name (i.e. 'Quartus project file');
+# glob_pattern: File's extension (i.e. '.qpf');
+# gen_iconname: Determines what icon the desktop will choose for such files.
+#
+function create_mimetype() {
+    new_type="$1"
+    comment="$2"
+    glob_pattern="$3"
+    gen_iconname="$4"
+
+    info "Creating MIME-type for \"${comment}\" ..."
+    echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"\
+            "<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">"\
+            "  <mime-type type=\"application/x-${new_type}\">"\
+            "    <comment>${comment}</comment>"\
+            "    <generic-icon name=\"${gen_iconname}\"/>"\
+            "    <glob pattern=\"*.${glob_pattern##*.}\"/>"\
+            "  </mime-type>"\
+            "</mime-info>"\
+    > "${LOCAL_MIMEDIR}/packages/application-x-${new_type}.xml" &&\
+    ok "Added new MIME-type." ||\
+    (err "Something went wrong when trying to create new MIME-type!" &&\
+    return 1)
+}
+
+
+### Create MIME-types for Quartus and Questa
+#
+function create_qmimetypes() {
+    create_mimetype "qpf" "Quartus project" ".qpf" "model"
+    create_mimetype "mpf" "Questa Vsim project" ".mpf" "application-x-model"
+
+    info "Telling desktop environment about changes ..."
+    update-mime-database "${LOCAL_MIMEDIR}" 2> /dev/null &&\
+    update-desktop-database "${LOCAL_APPDIR}" 2> /dev/null &&\
+    ok "Desktop has been briefed :)" ||\
+    (err "Troubles when trying to instruct desktop!" &&\
+    return 1)
+}
+
+
 ### RUN THIS SKRIPT ###
 clear
-info "${HELLO_MSG}"
+echo -e "${HELLO_MSG}"
 run_preinstaller
