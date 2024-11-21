@@ -19,7 +19,7 @@
 #
 # After the regular install handeled by Intel, it ...
 #
-#   I)      Downloads the Quartus-installer (v. 23.1) directly from Intel;
+#   I)      Downloads the Quartus-installer (v. 23.1.1) directly from Intel;
 #   II)     Launches the installer after the download has finished;
 #   III)    Moves the Intel installation to the systems '/opt' directory;
 #   IV)     Changes the necessary environment variables pointing to
@@ -32,14 +32,15 @@
 #   VIII)   Creates the necessary udev-rules for Intel "USB-blaster" support;
 #   IX)     Checks if everything is there and gives a summary to the end. :)
 #
-# (*) Credits to "zayronxio" who created them!
+# (*) Credits to zayronxio who created this set!
 #   ==> https://github.com/zayronxio/Elementary-KDE-Icons
 #
 
-HELLO_MSG="\n\t\t~~~ Welcome to Jo's FPGA Helper ~~~\n"
-trap "echo -e \"\n\t\t~~~ FPGA Helper quit. Bye for now! :) ~~~\n\"" EXIT
+SCRIPT_TITLE="Lazy FPGA Helper"
+HELLO_MSG="\n\t\t~~~ Welcome to Jo's ${SCRIPT_TITLE} ~~~\n"
+trap "echo -e \"\n\t\t~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
 
-# 'lsb_release' command is too rare for serving as reliable distro id tool.
+# 'lsb_release' command is too rare for serving as a reliable distro id tool.
 # DISTRO="$(lsb_release -si)"
 DISTRO="$(grep -oP '(?<=")[^ ]*' /etc/os-release | head -n 1)"
 
@@ -49,8 +50,8 @@ QUARTUS_DESKTOP_LAUNCHER="com.intel.QuartusPrimeLite_23.1.1.desktop"
 QUESTA_DESKTOP_LAUNCHER="com.intel.QuestaVsim_23.1.1.desktop"
 
 LOCAL_ICONDIR="${HOME}/.local/share/icons"
-QUESTA_ICON="gtkwave.svg"
-QUARTUS_ICON="marble.svg"
+QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/gtkwave.svg"
+QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/marble.svg"
 
 Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
 Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
@@ -63,11 +64,6 @@ Q_INSTALLER_LOCAL_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 
 Q_DIRNAME="intelFPGA_lite"
 Q_ROOTDIR="/opt/fpga_test/${Q_DIRNAME}"  # FIXME: Remove "/fpga_test" after testing!
-
-# FIXME: Remove after testing!
-# By default, the license key file is obtained by this setup script ('locate_qlicense').
-# LICENSE_FILE="LR-202898_License.dat"
-# Q_LICENSE_LOCAL_URI="${HOME}/.licenses/intel/${LICENSE_FILE}"
 
 # Color codes for text output
 RED_BOLD="\e[1;31m"
@@ -83,8 +79,7 @@ ENDCOLOR="\e[0m"
 function err() {
     echo -e "${GREY}[${ENDCOLOR}"\
             "${RED_BOLD}ERROR${ENDCOLOR}"\
-            "${GREY}]${ENDCOLOR}"\
-            "\t${LIGHT_GREY}$*${ENDCOLOR}" >&2
+            "${GREY}]${ENDCOLOR}\t$*" >&2
 }
 
 
@@ -94,7 +89,7 @@ function ok() {
     echo -e "${GREY}[${ENDCOLOR}"\
             "${GREEN_BOLD}OK${ENDCOLOR}"\
             "${GREY}]${ENDCOLOR}"\
-            "\t\t${LIGHT_GREY}$*${ENDCOLOR}" >&2
+            "\t\t$*" >&2
 }
 
 
@@ -104,14 +99,14 @@ function warn() {
     echo -e "${GREY}[${ENDCOLOR}"\
             "${YELLOW_BOLD}WARNING${ENDCOLOR}"\
             "${GREY}]${ENDCOLOR}"\
-            "\t${LIGHT_GREY}$*${ENDCOLOR}" >&2
+            "\t$*" >&2
 }
 
 
 ### Info messages to STDOUT (1)
 #
 function info() {
-    echo -e "\t\t${LIGHT_GREY}$*${ENDCOLOR}"
+    echo -e "\t\t$*"
 }
 
 
@@ -126,7 +121,7 @@ function check_shell() {
             return 0
             ;;
         *)
-            err "Sorry, your login shell \"${SHELL}\" is not supported by this script!"
+            err "Sorry, your login shell \"${SHELL}\" is not supported by ${SCRIPT_TITLE}!"
             info "Please use ZSH or BASH instead.\n"\
                 "\t ==> By issuing 'chsh /path/to/shell' you can switch easily :)\n"
             return 1
@@ -139,26 +134,50 @@ function check_shell() {
 #
 function check_distro() {
     case "${DISTRO}" in
-        Fedora|Debian|Ubuntu)
+        Fedora|Ubuntu)
             ok "Running on ${DISTRO}."
             return 0
             ;;
         *)
-            warn "${DISTRO} has not been tested to work with this script."
-            info "You may proceed, but at no guarantee that it will work!"
-            read -p "Is this okay? [y/N]: " choice
+            warn "${SCRIPT_TITLE} has not been tested to work with ${DISTRO}."
+            info " ==> You may proceed, but please don't expect things to work overall smoothly!"
+            ask_for_cancel
+            ;;
+    esac
+}
+
+
+### Determine which desktop environment is used
+#
+function check_desktop() {
+    case "${XDG_CURRENT_DESKTOP}" in
+        GNOME)
+            ok "Desktop environment is Gnome."
+            return 0
+            ;;
+        *)
+            warn "${SCRIPT_TITLE} could work on ${XDG_CURRENT_DESKTOP} desktop, but has not been tested yet!"
+            info " ==> Proceed if you like tinkering and are seasoned with your desktop environment!"
+            ask_for_cancel
+            ;;
+    esac
+}
+
+
+### Ask if script should cancel
+#
+function ask_for_cancel() {
+    read -p "Is this okay? [y/N]: " choice
             
-            case "${choice}" in
-                y|Y|yes|Yes|YES)
-                    info "Continuing this helper script without guarantee ..."
-                    return 0
-                    ;;
-                *)
-                    info "Cancelled on your decision.\n"\
-                         "\t\t==> See you!\n"
-                    return 1
-                    ;;
-            esac
+    case "${choice}" in
+        y|Y|yes|Yes|YES)
+            info "Moving on, but without guarantee ..."
+            return 0
+            ;;
+        *)
+            info "Cancelled on your decision.\n"\
+                "\t\t==> Feel free to improve ${SCRIPT_TITLE} :)\n"
+            return 1
             ;;
     esac
 }
@@ -186,30 +205,41 @@ function check_deps() {
 #
 function check_sudo() {
     case "${DISTRO}" in
-        Debian|Ubuntu|"Linux Mint")
+        Ubuntu|Debian)
             sudoers_group="sudo"
             ;;
-        Fedora|RHEL|openSUSE)
+        Fedora)
             sudoers_group="wheel"
             ;;
+        # FIXME:
+        # Try to determine sudo membership via /etc/passwd if
+        # Distro is neither Fedora, Ubuntu nor Debian.
     esac
 
+    # User must not be root
+    if [ "${USER}" == "root" ]; then
+        err "Running as root!"
+        info "This is highly discouraged, as it puts your system to unnecessary risks!"\
+            " ==> Please login as a regular user having access to sudo and try again."
+        return 1
+    fi
+
     [ "$(id -Gn | grep -c "${sudoers_group}")" > /dev/null ] &&\
-    ok "Current user \"${USER}\" is allowed to perform administrative tasks." ||\
-    (err "Sorry, user ${USER} does not have sufficient permissions to run this script!" &&\
+    ok "Current user \"${USER}\" may gain elevated permissions." ||\
+    (err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_TITLE}!" &&\
     info "Please make sure you may gain root privileges first, then try again.\n"\
         "\t\t==> Otherwise please contact your system administration." &&\
     return 1)
 }
 
 
-### Check whether internet and desired domain can be connected to
+### Check whether internet and desired web resource can be reached
 #
 # HTTP responses between 100-399 are fine, as well as
 # server error responses between 500-599.
-# Why? In some cases, we won't get a successful response because
-# we are not allow to access the resource directly, but we now
-# know that it's reachable (and this is the purpose of this function).
+# Why? In some cases, we won't get a successful response i.e. because
+# we are not allow to access the resource directly, but at least we now
+# know that it's there and reachable.
 #
 function is_webresource_avail() {
     service_url="$1"
@@ -231,8 +261,8 @@ function is_webresource_avail() {
                 return 0
                 ;;
             [2][0-9][0-9])
-                ok "Service replied successfully."
-                info "HTTP status: ${http_response}"
+                ok "Service replied."
+                # info "HTTP status: ${http_response}"
                 return 0
                 ;;
             [3][0-9][0-9])
@@ -343,7 +373,7 @@ function verify() {
         else
             warn "Caution: \"${local_uri}\"\n\t\tmay be corrupted and should not be used!"
             info " ==> If you received this message after a local installer file has been spotted,\n"\
-                "\t\t  please delete that file first and run this script again :)"
+                "\t\t  please delete that file first and run ${SCRIPT_TITLE} again :)"
             return 1
         fi
     else
@@ -398,13 +428,14 @@ function locate_qlicense() {
     Q_LICENSE_LOCAL_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
     [ -f "${Q_LICENSE_LOCAL_URI}" ] &&\
     ok "Found license key for Questa at \"${Q_LICENSE_LOCAL_URI}\"." ||\
-    (err "Could not find any license key for Questa." &&\
+    (warn "Could not find any license key for Questa." &&\
     info "If you are intending to run Questa, this will be required!\n"\
         "\t\tIn case you have one, ideally place it inside a hidden\n"\
         "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
         "\t\t ==> IMPORTANT: Your license can only be found if\n"\
-        "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n" &&\
-    return 1)
+        "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n\n" &&\
+    read -p "Got it! [Enter]: " gotit;
+    Q_LICENSE_LOCAL_URI="/Put/path/to/Questa/license/here!")
 }
 
 
@@ -412,61 +443,24 @@ function locate_qlicense() {
 #
 function run_qinstaller() {
     echo ""
-    info "PLEASE NOTICE:\n"\
+    info "PLEASE READ CAREFULLY:\n"\
         "\tAt next, the Intel Quartus installer will be launched.\n"\
         "\tYou can use it as you'd regularly do, choosing the FPGA components you need.\n\n"\
-        "\tIMPORTANT: Please, leave the install paths and any related settings at their defaults!\n"\
-        "\t ==> Otherwise, this helper script might not be able to find the\n"\
-        "\t     directory containing Quartus, preventing post-install assistance!\n\n"\
-        "\tAfter the installer has finished to download all selected components, this script will\n"\
-        "\tcontinue and do all the rest for you as soon as Quartus installer has done its job and quit.\n"\
-        "\t ==> Make sure to select the checkbox regarding Intel's EULA!\n"
+        "\tIMPORTANT: Please, leave the install paths and any related settings at their defaults.\n"\
+        "\t ==> Otherwise, ${SCRIPT_TITLE} might not be able to find the\n"\
+        "\t  directory containing Quartus, preventing post-install assistance!\n\n"\
+        "\t ==> Make sure to select the checkbox regarding Intel's EULA!\n"\
+        "\t  If for some reason Quartus installer doesn't do anything after downloading and verifying your\n"\
+        "\t  selected components, please click the \"Download\" button again. This will launch the tasks.\n\n"\
+        "\t ==> After confirming \"OK\" when Quartus installer tells it finished, just click on \"Close\"\n"\
+        "\t  at the lower right corner of the installer's main window.\n"\
+        "\t  Once Quartus installer quit, ${SCRIPT_TITLE} will move on and tries to do all the rest for you :)\n"
 
     read -p 'Got it! [Enter]: ' gotit
     info "Making installer executable first ..."
     chmod +x "${Q_INSTALLER_LOCAL_URI}"
     info "Please wait, launching Quartus installer. Continue at its window!\n"
     "${SHELL}" -c "${Q_INSTALLER_LOCAL_URI}"
-}
-
-
-### The setup process
-#
-function run_preinstaller() {
-    check_shell &&\
-    check_distro &&\
-    check_deps &&\
-    check_sudo &&\
-    locate_qlicense &&\
-    locate_qinstaller &&\
-    verify_qinstaller &&\
-    run_qinstaller &&\
-    run_postinstaller
-}
-
-
-### Run actual post-install assistant
-#
-function run_postinstaller() {
-    echo ""
-    info "PERFORMING POST-INSTALLATION:\n"\
-        "\tSome of the following steps you will need to confirm with your password.\n"\
-        "\tPlease enter it if prompted for.\n"\
-        "\t ==> On most systems, nothing is echoed due to security reasons!\n"
-
-    relocate_qrootdir &&\
-    (create_quartus_launcher;
-    create_questa_launcher;
-    create_qmimetypes;
-    setup_icons;
-    update_envvars;
-    create_udevrules)
-    
-    echo ""
-    info "If you can see only green \"OK\" feedback below post-install headline\n"\
-        "\t\tyou are now ready to use your Intel FPGA suite :)\n"\
-        "\t\t ==> Otherwise, please investigate the error messages\n"\
-        "\t\t  and fix the corresponding parts manually."
 }
 
 
@@ -479,7 +473,7 @@ function relocate_qrootdir() {
         info "Creating Quartus' root directory ..."
         sudo mkdir -p "${Q_ROOTDIR}" &&\
         info "Please wait a moment while moving ${q_dir} to ${Q_ROOTDIR}/ ..." &&\
-        sudo mv "${q_dir}" "${Q_ROOTDIR}" &&\
+        sudo mv "${q_dir}"/* "${Q_ROOTDIR}/" &&\
         info "Making root the owner of Quartus ..." &&\
         sudo chown -R root:root "${Q_ROOTDIR}" &&\
         ok "Successfully relocated Quartus." ||\
@@ -487,7 +481,7 @@ function relocate_qrootdir() {
         return 1)
     else
         err "Could not find \"${Q_DIRNAME}\" program folder!"
-        info " ==> Most likely, Quartus installer has quit without installing anything."
+        info " ==> Most likely, Quartus installer has just quit without installing anything."
         return 1
     fi
 }
@@ -503,8 +497,8 @@ function create_quartus_launcher() {
             "\nTerminal=false"\
             "\nExec=${Q_ROOTDIR}/23.1std/quartus/bin/quartus --64bit %f"\
             "\nComment=Intel Quartus Prime Lite 23.1.1"\
-            "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/marble.svg"\
-            "\nCategories=Education;Development;"\
+            "\nIcon=${QUARTUS_ICON}"\
+            "\nCategories=Education;Development;Programming;"\
             "\nMimeType=application/x-qpf"\
             "\nKeywords=intel;fpga;ide;quartus;prime;lite;"\
             "\nStartupWMClass=quartus"\
@@ -523,11 +517,11 @@ function create_questa_launcher() {
             "\nType=Application"\
             "\nName=Questa"\
             "\nTerminal=false"\
-            "\nExec=env LM_LICENSE_FILE=${Q_LICENSE_LOCAL_URI}"\
+            "\nExec=env LM_LICENSE_FILE=\"${Q_LICENSE_LOCAL_URI}\""\
             "${Q_ROOTDIR}/23.1std/questa_fse/bin/vsim -gui %f"\
             "\nComment=Intel Questa Vsim (Prime Lite 23.1.1)"\
-            "\nIcon=${HOME}/.local/share/icons/elementary-kde/scalable/gtkwave.svg"\
-            "\nCategories=Education;Development;"\
+            "\nIcon=${QUESTA_ICON}"\
+            "\nCategories=Education;Development;Programming;"\
             "\nMimeType=application/x-mpf;"\
             "\nKeywords=intel;fpga;ide;simulation;model;vsim;"\
             "\nStartupWMClass=Vsim"\
@@ -538,19 +532,39 @@ function create_questa_launcher() {
 }
 
 
+### Create desktop launchers for Quartus and Questa
+#
+function create_qlaunchers() {
+    if [ ! -d "${LOCAL_APPDIR}" ]; then
+        info "Creating local app directory \"${LOCAL_APPDIR}\" ..."
+        mkdir -p "${LOCAL_APPDIR}" ||\
+        (err "Could not create app dir!" &&\
+        return 1)
+    fi
+
+    create_quartus_launcher
+    create_questa_launcher
+}
+
+
 ### Modify Quartus' environment variables
 #
-# Intel's Quartus installer automatically creates
+# Quartus installer already creates
 # environment variables necessary for operation.
+# 
 #  ==> Because they have to be changed if the
 #   program's location changes, this is done by
 #   this function.
+#   In case this shouldn't have happened, 'sed'
+#   will fail silently, because it doesn't really
+#   matter as the env-vars are going
+#   to be (re)created independently.
 #
 function update_envvars() {
-    shellrc="${HOME}/.$(basename ${SHELL})rc"
+    shellrc="${HOME}/.$(basename "${SHELL}")rc"
     info "Updating Quartus' environment variables in ${shellrc} ..."
-    sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" 2> /dev/null &&\
-    sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null &&\
+    sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" 2> /dev/null
+    sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null
     echo -e "\n#Intel FPGA environment (Quartus Prime Lite)"\
             "\nexport LM_LICENSE_FILE='${Q_LICENSE_LOCAL_URI}'"\
             "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin'"\
@@ -573,9 +587,9 @@ function create_udevrules() {
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6003\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6010\", MODE=\"0666\""\
         "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6810\", MODE=\"0666\""\
-    | sudo tee "${udev_local_uri}" > /dev/null &&\
+    | sudo tee "${udev_local_uri}" 2>&1 > /dev/null &&\
     ok "Rules have been added." ||\
-    (err "Failed to create udev rules!" &&\
+    (err "Failed to create udev rules at \"${udev_local_uri}\"!" &&\
     return 1)
 }
 
@@ -590,37 +604,83 @@ function create_udevrules() {
 function create_mimetype() {
     new_type="$1"
     comment="$2"
-    glob_pattern="$3"
-    gen_iconname="$4"
+    gen_iconname="$3"
 
     info "Creating MIME-type for \"${comment}\" ..."
     echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"\
             "<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">"\
-            "  <mime-type type=\"application/x-${new_type}\">"\
-            "    <comment>${comment}</comment>"\
-            "    <generic-icon name=\"${gen_iconname}\"/>"\
-            "    <glob pattern=\"*.${glob_pattern##*.}\"/>"\
-            "  </mime-type>"\
+            "\t<mime-type type=\"application/x-${new_type}\">"\
+            "\t\t<comment>${comment}</comment>"\
+            "\t\t<generic-icon name=\"${gen_iconname}\"/>"\
+            "\t\t<glob pattern=\"*.${new_type}\"/>"\
+            "\t</mime-type>"\
             "</mime-info>"\
     > "${LOCAL_MIMEDIR}/packages/application-x-${new_type}.xml" &&\
     ok "Added new MIME-type." ||\
-    (err "Something went wrong when trying to create new MIME-type!" &&\
+    (err "Sorry, something went wrong when trying to create new MIME-type!" &&\
     return 1)
 }
 
 
-### Create MIME-types for Quartus and Questa
+### Create MIME-types for Quartus and Questa files
 #
 function create_qmimetypes() {
-    create_mimetype "qpf" "Quartus project" ".qpf" "model"
-    create_mimetype "mpf" "Questa Vsim project" ".mpf" "application-x-model"
+    if [ ! -d "${LOCAL_MIMEDIR}" ]; then
+        info "Creating local MIME directory \"${LOCAL_MIMEDIR}\" ..."
+        mkdir -p "${LOCAL_MIMEDIR}/packages" ||\
+        (err "Could not create MIME dir!" &&\
+        return 1)
+    fi
+
+    create_mimetype "qpf" "Quartus project" "model"
+    create_mimetype "mpf" "Questa Vsim project" "application-x-model"
 
     info "Telling desktop environment about changes ..."
     update-mime-database "${LOCAL_MIMEDIR}" 2> /dev/null &&\
     update-desktop-database "${LOCAL_APPDIR}" 2> /dev/null &&\
-    ok "Desktop has been briefed :)" ||\
+    ok "Desktop got it :)" ||\
     (err "Troubles when trying to instruct desktop!" &&\
     return 1)
+}
+
+
+### The setup process
+#
+function run_preinstaller() {
+    check_shell &&\
+    check_distro &&\
+    check_desktop &&\
+    check_deps &&\
+    check_sudo &&\
+    locate_qlicense &&\
+    locate_qinstaller &&\
+    verify_qinstaller &&\
+    run_qinstaller &&\
+    run_postinstaller
+}
+
+
+### Run actual post-install assistant
+#
+function run_postinstaller() {
+    echo ""
+    info "PERFORMING POST-INSTALLATION:\n"\
+        "\tSome of the following steps you will need to confirm with your password.\n"\
+        "\tPlease enter it if prompted for.\n"\
+        "\t ==> On most systems, nothing is echoed due to security reasons!\n"
+
+    relocate_qrootdir &&\
+    (create_qlaunchers;
+    create_qmimetypes;
+    setup_icons;
+    update_envvars;
+    create_udevrules)
+    
+    echo ""
+    info "If you can see only green \"OK\" feedback below post-install headline\n"\
+        "\t\tyou are now ready to use your Intel FPGA suite :)\n"\
+        "\t\t ==> Otherwise, please investigate the error messages\n"\
+        "\t\t  and fix the corresponding parts manually."
 }
 
 
