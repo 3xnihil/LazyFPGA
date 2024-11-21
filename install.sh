@@ -216,6 +216,8 @@ function check_sudo() {
         *)
             # If we are going off-road entirely ^^
             warn "Sorry, not knowing sudoers group on ${DISTRO}!"
+            info " ==> Only answer 'yes' if you know that for your distro.\n"\
+                "\t\t Otherwise, ${SCRIPT_TITLE} will fail to make Quartus ready for use!\n"
             ask_for_cancel "Are you really sure having sudo access?"
             ;;
     esac
@@ -223,8 +225,8 @@ function check_sudo() {
     # User must not be root
     if [ "${USER}" == "root" ]; then
         err "Running as root!"
-        info "This is highly discouraged, as it puts your system to unnecessary risks!"\
-            " ==> Please login as a regular user having access to sudo and try again."
+        info "This is highly discouraged, as it puts your system to unnecessary risks!\n"\
+            "\t\t ==> Please login as a regular user having access to sudo and try again."
         return 1
     fi
 
@@ -233,11 +235,11 @@ function check_sudo() {
         ok "Current user \"${USER}\" may gain elevated permissions." ||\
         (err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_TITLE}!" &&\
         info "Please make sure you may gain root privileges first, then try again.\n"\
-            "\t\t==> Otherwise please contact your system administration." &&\
+            "\t\t ==> Otherwise please contact your system administration." &&\
         return 1)
     else
-        info "Only relying on your answer!"\
-            " ==> If things don't work out later on, don't cry. You have been warned ;)"
+        info "Relying on your answer!\n"\
+            "\t\t ==> If things don't work out later on, don't cry. You have been warned ;)"
     fi
 }
 
