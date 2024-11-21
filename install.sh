@@ -167,7 +167,9 @@ function check_desktop() {
 ### Ask if script should cancel
 #
 function ask_for_cancel() {
-    read -p "Is this okay? [y/N]: " choice
+    prompt="$1"
+    [ -z "${prompt}" ] && prompt="Is this okay?"
+    read -p "${prompt} [y/N]: " choice
             
     case "${choice}" in
         y|Y|yes|Yes|YES)
@@ -205,15 +207,17 @@ function check_deps() {
 #
 function check_sudo() {
     case "${DISTRO}" in
-        Ubuntu|Debian)
+        Ubuntu|Debian|"Linux Mint"|LMDE|elementaryOS)
             sudoers_group="sudo"
             ;;
-        Fedora)
+        Fedora|RHEL|openSUSE)
             sudoers_group="wheel"
             ;;
-        # FIXME:
-        # Try to determine sudo membership via /etc/passwd if
-        # Distro is neither Fedora, Ubuntu nor Debian.
+        *)
+            # If we are going off-road entirely ^^
+            warn "Sorry, not knowing sudoers group on ${DISTRO}!"
+            ask_for_cancel "Are you really sure having sudo access?"
+            ;;
     esac
 
     # User must not be root
@@ -224,12 +228,17 @@ function check_sudo() {
         return 1
     fi
 
-    [ "$(id -Gn | grep -c "${sudoers_group}")" > /dev/null ] &&\
-    ok "Current user \"${USER}\" may gain elevated permissions." ||\
-    (err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_TITLE}!" &&\
-    info "Please make sure you may gain root privileges first, then try again.\n"\
-        "\t\t==> Otherwise please contact your system administration." &&\
-    return 1)
+    if [ ! -z "${sudoers_group}" ]; then
+        [ "$(id -Gn | grep -c "${sudoers_group}")" > /dev/null ] &&\
+        ok "Current user \"${USER}\" may gain elevated permissions." ||\
+        (err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_TITLE}!" &&\
+        info "Please make sure you may gain root privileges first, then try again.\n"\
+            "\t\t==> Otherwise please contact your system administration." &&\
+        return 1)
+    else
+        info "Only relying on your answer!"\
+            " ==> If things don't work out later on, don't cry. You have been warned ;)"
+    fi
 }
 
 
