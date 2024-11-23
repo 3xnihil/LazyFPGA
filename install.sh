@@ -124,7 +124,7 @@ function check_platform() {
 # Only BASH and ZSH are supported.
 #
 function check_shell() {
-    case "$(basename ${SHELL})" in
+    case "$(basename "${SHELL}")" in
         bash|zsh)
             ok "Your login shell is \"${SHELL}\"."
             return 0
