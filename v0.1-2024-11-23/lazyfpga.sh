@@ -7,6 +7,7 @@
 #
 # Author: Johannes Hüffer
 # Date: 15.11.2024
+# Version: 0.1
 #
 # Automated postinstall-setup for RHEL- and Debian-based
 # Linux distros installing Intel FPGA components aiming post-installation
@@ -29,8 +30,8 @@
 #   VI)     Downloads nice icons for both Quartus and Questa from Github(*);
 #   VII)    Creates new MIME-types for Quartus' and Questa's project files
 #           allowing these file types to be opened directly in file managers;
-#   VIII)   Creates the necessary udev-rules for Intel "USB-blaster" support;
-#   IX)     Checks if everything is there and gives a summary to the end. :)
+#   VIII)   Creates the necessary udev-rules for Intel "USB-blaster" support
+#   IX)     and gives a little hint to the end. :)
 #
 # (*) Credits to zayronxio who created this set!
 #   ==> https://github.com/zayronxio/Elementary-KDE-Icons
@@ -616,10 +617,10 @@ function create_udevrules() {
 
 ### Create new MIME-type
 #
-# 'new_type': Base of both MIME-type's identifier and file extension
-# (i.e. 'x-qpf' resp. '.qpf' for Qaurtus project files);
-# 'comment': Short description (i.e. 'Quartus project file');
-# 'gen_iconname': Determines what icon the desktop will choose for such files.
+# mime: Actual identifier of the MIME-type (i.e. 'x-qpf' for Qaurtus project files);
+# comment: Full name (i.e. 'Quartus project file');
+# glob_pattern: File's extension (i.e. '.qpf');
+# gen_iconname: Determines what icon the desktop will choose for such files.
 #
 function create_mimetype() {
     new_type="$1"
@@ -628,13 +629,13 @@ function create_mimetype() {
 
     info "Creating MIME-type for \"${comment}\" ..."
     echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"\
-            "\n<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">"\
-            "\n\t<mime-type type=\"application/x-${new_type}\">"\
-            "\n\t\t<comment>${comment}</comment>"\
-            "\n\t\t<generic-icon name=\"${gen_iconname}\"/>"\
-            "\n\t\t<glob pattern=\"*.${new_type}\"/>"\
-            "\n\t</mime-type>"\
-            "\n</mime-info>"\
+            "<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">"\
+            "\t<mime-type type=\"application/x-${new_type}\">"\
+            "\t\t<comment>${comment}</comment>"\
+            "\t\t<generic-icon name=\"${gen_iconname}\"/>"\
+            "\t\t<glob pattern=\"*.${new_type}\"/>"\
+            "\t</mime-type>"\
+            "</mime-info>"\
     > "${LOCAL_MIMEDIR}/packages/application-x-${new_type}.xml" &&\
     ok "Added new MIME-type." ||\
     (err "Sorry, something went wrong when trying to create new MIME-type!" &&\
