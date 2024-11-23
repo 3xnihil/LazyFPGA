@@ -110,6 +110,15 @@ function info() {
 }
 
 
+### Check running kernel
+#
+function check_platform() {
+    [ "$(uname)" == "Linux" ] ||\
+    (echo "  /!\\ This script only works on GNU+Linux!" &&\
+    return 1)
+}
+
+
 ### Check login shell compatibility
 #
 # Only BASH and ZSH are supported.
@@ -123,7 +132,7 @@ function check_shell() {
         *)
             err "Sorry, your login shell \"${SHELL}\" is not supported by ${SCRIPT_TITLE}!"
             info "Please use ZSH or BASH instead.\n"\
-                "\t ==> By issuing 'chsh /path/to/shell' you can switch easily :)\n"
+                "\t ==> I.e. by issuing \"chsh $(which bash)\" you can switch easily :)\n"
             return 1
             ;;
     esac
@@ -439,7 +448,7 @@ function locate_qlicense() {
     Q_LICENSE_LOCAL_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
     [ -f "${Q_LICENSE_LOCAL_URI}" ] &&\
     ok "Found license key for Questa at \"${Q_LICENSE_LOCAL_URI}\"." ||\
-    (warn "Could not find any license key for Questa." &&\
+    (err "Could not find any license key for Questa." &&\
     info "If you are intending to run Questa, this will be required!\n"\
         "\t\tIn case you have one, ideally place it inside a hidden\n"\
         "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
@@ -658,6 +667,7 @@ function create_qmimetypes() {
 ### The setup process
 #
 function run_preinstaller() {
+    check_platform &&\
     check_shell &&\
     check_distro &&\
     check_desktop &&\
