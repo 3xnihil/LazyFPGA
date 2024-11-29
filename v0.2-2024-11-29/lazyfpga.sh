@@ -726,4 +726,4 @@ function run_postinstaller() {
 ### RUN THIS SKRIPT ###
 clear
 echo -e "${HELLO_MSG}"
-#run_preinstaller
+run_preinstaller

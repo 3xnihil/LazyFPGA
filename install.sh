@@ -46,8 +46,8 @@ trap "echo -e \"\n\t\t~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
 DISTRO="$(grep -oP '(?<=")[^ ]*' /etc/os-release | head -n 1)"
 
 LOCAL_ICONDIR="${HOME}/.local/share/icons"
-QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/gtkwave.svg"
-QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/marble.svg"
+QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/gtkwave.svg"
+QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/marble.svg"
 G_ICON_REPO="https://github.com/zayronxio/Elementary-KDE-Icons.git"
 
 TMP_SETUP_DIR="/tmp/fpga-setup"
@@ -71,7 +71,7 @@ QUARTUS_DESKTOP_LAUNCHER_STR="[Desktop Entry]\
 \nExec=${Q_ROOTDIR}/23.1std/quartus/bin/quartus --64bit %f\
 \nComment=Intel Quartus Prime Lite 23.1.1\
 \nIcon=${QUARTUS_ICON}\
-\nCategories=Education;Development;Programming;\
+\nCategories=Development;X-Programming;\
 \nMimeType=application/x-qpf\
 \nKeywords=intel;fpga;ide;quartus;prime;lite;\
 \nStartupWMClass=quartus"
@@ -556,7 +556,7 @@ function create_questa_launcher() {
 ${Q_ROOTDIR}/23.1std/questa_fse/bin/vsim -gui %f\
 \nComment=Intel Questa Vsim (Prime Lite 23.1.1)\
 \nIcon=${QUESTA_ICON}\
-\nCategories=Education;Development;Programming;\
+\nCategories=Development;X-Programming;\
 \nMimeType=application/x-mpf;\
 \nKeywords=intel;fpga;ide;simulation;model;vsim;\
 \nStartupWMClass=Vsim"\
