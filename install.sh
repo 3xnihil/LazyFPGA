@@ -180,8 +180,8 @@ function check_distro() {
 #
 function check_desktop() {
     case "${XDG_CURRENT_DESKTOP}" in
-        GNOME)
-            ok "Desktop environment is Gnome."
+        GNOME|LXQt)
+            ok "Desktop environment is ${XDG_CURRENT_DESKTOP}."
             return 0
             ;;
         *)
