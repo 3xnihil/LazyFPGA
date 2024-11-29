@@ -44,26 +44,45 @@ trap "echo -e \"\n\t\t~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
 # DISTRO="$(lsb_release -si)"
 DISTRO="$(grep -oP '(?<=")[^ ]*' /etc/os-release | head -n 1)"
 
-LOCAL_APPDIR="${HOME}/.local/share/applications"
-LOCAL_MIMEDIR="${HOME}/.local/share/mime"
-QUARTUS_DESKTOP_LAUNCHER="com.intel.QuartusPrimeLite_23.1.1.desktop"
-QUESTA_DESKTOP_LAUNCHER="com.intel.QuestaVsim_23.1.1.desktop"
-
 LOCAL_ICONDIR="${HOME}/.local/share/icons"
 QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/gtkwave.svg"
 QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/marble.svg"
-
-Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
-Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
-Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
-
 G_ICON_REPO="https://github.com/zayronxio/Elementary-KDE-Icons.git"
 
 TMP_SETUP_DIR="/tmp/fpga-setup"
-Q_INSTALLER_LOCAL_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
-
+Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
+Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
+Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
+Q_INSTALLER_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
 Q_ROOTDIR="/opt/fpga_test/${Q_DIRNAME}"  # FIXME: Remove "/fpga_test" after testing!
+
+LOCAL_APPDIR="${HOME}/.local/share/applications"
+LOCAL_MIMEDIR="${HOME}/.local/share/mime"
+
+QUARTUS_DESKTOP_LAUNCHER="com.intel.QuartusPrimeLite_23.1.1.desktop"
+QUARTUS_DESKTOP_LAUNCHER_URI="${LOCAL_APPDIR}/${QUARTUS_DESKTOP_LAUNCHER}"
+QUARTUS_DESKTOP_LAUNCHER_STR="[Desktop Entry]\
+\nVersion=1.0\
+\nType=Application\
+\nName=Quartus\
+\nTerminal=false\
+\nExec=${Q_ROOTDIR}/23.1std/quartus/bin/quartus --64bit %f\
+\nComment=Intel Quartus Prime Lite 23.1.1\
+\nIcon=${QUARTUS_ICON}\
+\nCategories=Education;Development;Programming;\
+\nMimeType=application/x-qpf\
+\nKeywords=intel;fpga;ide;quartus;prime;lite;\
+\nStartupWMClass=quartus"
+
+QUESTA_DESKTOP_LAUNCHER="com.intel.QuestaVsim_23.1.1.desktop"
+QUESTA_DESKTOP_LAUNCHER_URI="${LOCAL_APPDIR}/${QUESTA_DESKTOP_LAUNCHER}"
+
+UDEV_USBBLASTER_STR="SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6001\", MODE=\"0666\"\
+\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6002\", MODE=\"0666\"\
+\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6003\", MODE=\"0666\"\
+\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6010\", MODE=\"0666\"\
+\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6810\", MODE=\"0666\""
 
 # Color codes for text output
 RED_BOLD="\e[1;31m"
@@ -143,7 +162,7 @@ function check_shell() {
 #
 function check_distro() {
     case "${DISTRO}" in
-        Fedora|Ubuntu)
+        Fedora|Ubuntu|Debian|'Linux Mint'|LMDE)
             ok "Running on ${DISTRO}."
             return 0
             ;;
@@ -182,7 +201,7 @@ function ask_for_cancel() {
             
     case "${choice}" in
         y|Y|yes|Yes|YES)
-            info "Moving on, but without guarantee ..."
+            info "Moving on, but less lazy ..."
             return 0
             ;;
         *)
@@ -216,7 +235,7 @@ function check_deps() {
 #
 function check_sudo() {
     case "${DISTRO}" in
-        Ubuntu|Debian|"Linux Mint"|LMDE|elementaryOS)
+        Ubuntu|Debian|'Linux Mint'|LMDE|elementaryOS)
             sudoers_group="sudo"
             ;;
         Fedora|RHEL|openSUSE)
@@ -352,7 +371,7 @@ function download() {
 ### Download Quartus installer
 #
 function download_qinstaller() {
-    download "${Q_INSTALLER_URL}" "${Q_INSTALLER_LOCAL_URI}"
+    download "${Q_INSTALLER_URL}" "${Q_INSTALLER_URI}"
 }
 
 
@@ -406,7 +425,7 @@ function verify() {
 ### Verify Quartus installer
 #
 function verify_qinstaller() {
-    verify "${Q_INSTALLER_LOCAL_URI}" "${Q_INSTALLER_CHECKSUM}"
+    verify "${Q_INSTALLER_URI}" "${Q_INSTALLER_CHECKSUM}"
 }
 
 
@@ -424,8 +443,8 @@ function locate_qinstaller() {
         q_filesize_bytes="$(du "${q_inst}" 2> /dev/null | grep -oP '^[0-9]+')"
         if [ "$?" -eq 0 ]; then
             [ "${q_filesize_bytes}" -ge 16000 ] &&\
-            ok "Installer fits minimum file size (${q_filesize_bytes}B >= 16000B)." &&\
-            Q_INSTALLER_LOCAL_URI="${q_inst}" ||\
+            ok "Installer fits minimum file size." &&\
+            Q_INSTALLER_URI="${q_inst}" ||\
             (warn "Installer candidate's file size is too small for being intact!" &&\
             info "Murmle, murmle! Trying to download from Intel instead ..." &&\
             download_qinstaller)
@@ -445,17 +464,17 @@ function locate_qinstaller() {
 ### Check if user already got a license key for Questa Vsim
 #
 function locate_qlicense() {
-    Q_LICENSE_LOCAL_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
-    [ -f "${Q_LICENSE_LOCAL_URI}" ] &&\
-    ok "Found license key for Questa at \"${Q_LICENSE_LOCAL_URI}\"." ||\
-    (err "Could not find any license key for Questa." &&\
+    Q_LICENSE_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
+    [ -f "${Q_LICENSE_URI}" ] &&\
+    ok "Found license key for Questa at \"${Q_LICENSE_URI}\"." ||\
+    (warn "Could not find any license key for Questa." &&\
     info "If you are intending to run Questa, this will be required!\n"\
         "\t\tIn case you have one, ideally place it inside a hidden\n"\
         "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
         "\t\t ==> IMPORTANT: Your license can only be found if\n"\
         "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n\n" &&\
-    read -p "Got it! [Enter]: " gotit;
-    Q_LICENSE_LOCAL_URI="/Put/path/to/Questa/license/here!")
+    ask_for_cancel "Got it! Proceed and add license later." &&\
+    Q_LICENSE_URI="/Put/path/to/Questa/license/here!")
 }
 
 
@@ -478,9 +497,9 @@ function run_qinstaller() {
 
     read -p 'Got it! [Enter]: ' gotit
     info "Making installer executable first ..."
-    chmod +x "${Q_INSTALLER_LOCAL_URI}"
+    chmod +x "${Q_INSTALLER_URI}"
     info "Please wait, launching Quartus installer. Continue at its window!\n"
-    "${SHELL}" -c "${Q_INSTALLER_LOCAL_URI}"
+    "${SHELL}" -c "${Q_INSTALLER_URI}"
 }
 
 
@@ -492,7 +511,7 @@ function relocate_qrootdir() {
     if [ -d "${q_dir}" ]; then
         info "Creating Quartus' root directory ..."
         sudo mkdir -p "${Q_ROOTDIR}" &&\
-        info "Please wait a moment while moving ${q_dir} to ${Q_ROOTDIR}/ ..." &&\
+        info "Please wait a moment while moving \"${q_dir}\" to \"${Q_ROOTDIR}/\" ..." &&\
         sudo mv "${q_dir}"/* "${Q_ROOTDIR}/" &&\
         info "Making root the owner of Quartus ..." &&\
         sudo chown -R root:root "${Q_ROOTDIR}" &&\
@@ -510,20 +529,8 @@ function relocate_qrootdir() {
 ### Create a desktop file for Quartus
 #
 function create_quartus_launcher() {
-    echo -e "[Desktop Entry]"\
-            "\nVersion=1.0"\
-            "\nType=Application"\
-            "\nName=Quartus"\
-            "\nTerminal=false"\
-            "\nExec=${Q_ROOTDIR}/23.1std/quartus/bin/quartus --64bit %f"\
-            "\nComment=Intel Quartus Prime Lite 23.1.1"\
-            "\nIcon=${QUARTUS_ICON}"\
-            "\nCategories=Education;Development;Programming;"\
-            "\nMimeType=application/x-qpf"\
-            "\nKeywords=intel;fpga;ide;quartus;prime;lite;"\
-            "\nStartupWMClass=quartus"\
-    > "${LOCAL_APPDIR}/${QUARTUS_DESKTOP_LAUNCHER}" &&\
-    ok "Created Quartus launcher at ${LOCAL_APPDIR}/${QUARTUS_DESKTOP_LAUNCHER}" ||\
+    echo -e "${QUARTUS_DESKTOP_LAUNCHER_STR}" > "${QUARTUS_DESKTOP_LAUNCHER_URI}" &&\
+    ok "Created Quartus launcher at \"${QUARTUS_DESKTOP_LAUNCHER_URI}\"." ||\
     (err "Failed to create desktop launcher for Quartus!" &&\
     return 1)
 }
@@ -531,22 +538,29 @@ function create_quartus_launcher() {
 
 ### Create a desktop file for Questa
 #
+# CAUTION:
+#  As "${Q_LICENSE_URI}" becomes initialized first during
+#  setup process, we have to apply the full string directly.
+#  Therefore, don't touch this ugly indentation, because
+#  the shell grabs each (non-printable and potentially unwanted)
+#  character between the string's quoting!
+#
 function create_questa_launcher() {
-    echo -e "[Desktop Entry]"\
-            "\nVersion=1.0"\
-            "\nType=Application"\
-            "\nName=Questa"\
-            "\nTerminal=false"\
-            "\nExec=env LM_LICENSE_FILE=\"${Q_LICENSE_LOCAL_URI}\""\
-            "${Q_ROOTDIR}/23.1std/questa_fse/bin/vsim -gui %f"\
-            "\nComment=Intel Questa Vsim (Prime Lite 23.1.1)"\
-            "\nIcon=${QUESTA_ICON}"\
-            "\nCategories=Education;Development;Programming;"\
-            "\nMimeType=application/x-mpf;"\
-            "\nKeywords=intel;fpga;ide;simulation;model;vsim;"\
-            "\nStartupWMClass=Vsim"\
-    > "${LOCAL_APPDIR}/${QUESTA_DESKTOP_LAUNCHER}" &&\
-    ok "Created Questa launcher at ${LOCAL_APPDIR}/${QUESTA_DESKTOP_LAUNCHER}" ||\
+    echo -e "[Desktop Entry]\
+\nVersion=1.0\
+\nType=Application\
+\nName=Questa\
+\nTerminal=false\
+\nExec=env LM_LICENSE_FILE=\"${Q_LICENSE_URI}\" \
+${Q_ROOTDIR}/23.1std/questa_fse/bin/vsim -gui %f\
+\nComment=Intel Questa Vsim (Prime Lite 23.1.1)\
+\nIcon=${QUESTA_ICON}\
+\nCategories=Education;Development;Programming;\
+\nMimeType=application/x-mpf;\
+\nKeywords=intel;fpga;ide;simulation;model;vsim;\
+\nStartupWMClass=Vsim"\
+    > "${QUESTA_DESKTOP_LAUNCHER_URI}" &&\
+    ok "Created Questa launcher at \"${QUESTA_DESKTOP_LAUNCHER_URI}\"." ||\
     (err "Failed to create desktop launcher for Questa!" &&\
     return 1)
 }
@@ -582,11 +596,11 @@ function create_qlaunchers() {
 #
 function update_envvars() {
     shellrc="${HOME}/.$(basename "${SHELL}")rc"
-    info "Updating Quartus' environment variables in ${shellrc} ..."
+    info "Updating Quartus' environment variables in \"${shellrc}\" ..."
     sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" 2> /dev/null
     sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null
     echo -e "\n#Intel FPGA environment (Quartus Prime Lite)"\
-            "\nexport LM_LICENSE_FILE='${Q_LICENSE_LOCAL_URI}'"\
+            "\nexport LM_LICENSE_FILE='${Q_LICENSE_URI}'"\
             "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin'"\
     >> "${shellrc}" &&\
     ok "Updated Quartus' environment variables." ||\
@@ -600,16 +614,11 @@ function update_envvars() {
 function create_udevrules() {
     udev_rulepath="/etc/udev/rules.d"
     udev_file="51-usbblaster.rules"
-    udev_local_uri="${udev_rulepath}/${udev_file}"
+    udev_uri="${udev_rulepath}/${udev_file}"
     info "Creating new udev rules for USB-blaster ..."
-    echo -e "SUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6001\", MODE=\"0666\""\
-        "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6002\", MODE=\"0666\""\
-        "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6003\", MODE=\"0666\""\
-        "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6010\", MODE=\"0666\""\
-        "\nSUBSYSTEM==\"usb\", ATTRS{idVendor}==\"09fb\", ATTRS{idProduct}==\"6810\", MODE=\"0666\""\
-    | sudo tee "${udev_local_uri}" 2>&1 > /dev/null &&\
+    echo -e "${UDEV_USBBLASTER_STR}" | sudo tee "${udev_uri}" 2>&1 > /dev/null &&\
     ok "Rules have been added." ||\
-    (err "Failed to create udev rules at \"${udev_local_uri}\"!" &&\
+    (err "Failed to create udev rules at \"${udev_uri}\"!" &&\
     return 1)
 }
 
@@ -617,9 +626,16 @@ function create_udevrules() {
 ### Create new MIME-type
 #
 # 'new_type': Base of both MIME-type's identifier and file extension
-# (i.e. 'x-qpf' resp. '.qpf' for Qaurtus project files);
+# (i.e. 'x-qpf' resp. '.qpf' for Quartus project files);
 # 'comment': Short description (i.e. 'Quartus project file');
 # 'gen_iconname': Determines what icon the desktop will choose for such files.
+#
+# CAUTION:
+#  Strings echoed and broken across multiple lines
+#  are crucial and must not(!) be handeled
+#  by indentation, since all characters between line
+#  breaks will be digested by the shell;
+#  destroying the resulting file's formatting!
 #
 function create_mimetype() {
     new_type="$1"
@@ -627,14 +643,14 @@ function create_mimetype() {
     gen_iconname="$3"
 
     info "Creating MIME-type for \"${comment}\" ..."
-    echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>"\
-            "\n<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">"\
-            "\n\t<mime-type type=\"application/x-${new_type}\">"\
-            "\n\t\t<comment>${comment}</comment>"\
-            "\n\t\t<generic-icon name=\"${gen_iconname}\"/>"\
-            "\n\t\t<glob pattern=\"*.${new_type}\"/>"\
-            "\n\t</mime-type>"\
-            "\n</mime-info>"\
+    echo -e "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\
+\n<mime-info xmlns=\"http://www.freedesktop.org/standards/shared-mime-info\">\
+\n\t<mime-type type=\"application/x-${new_type}\">\
+\n\t\t<comment>${comment}</comment>\
+\n\t\t<generic-icon name=\"${gen_iconname}\"/>\
+\n\t\t<glob pattern=\"*.${new_type}\"/>\
+\n\t</mime-type>\
+\n</mime-info>"\
     > "${LOCAL_MIMEDIR}/packages/application-x-${new_type}.xml" &&\
     ok "Added new MIME-type." ||\
     (err "Sorry, something went wrong when trying to create new MIME-type!" &&\
@@ -708,4 +724,4 @@ function run_postinstaller() {
 ### RUN THIS SKRIPT ###
 clear
 echo -e "${HELLO_MSG}"
-run_preinstaller
+#run_preinstaller
