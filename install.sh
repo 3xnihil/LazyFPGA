@@ -56,7 +56,7 @@ Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
 Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
 Q_INSTALLER_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
-Q_ROOTDIR="/opt/testing/${Q_DIRNAME}"  # INFO: You can safely change this path for testing purposes :)
+Q_ROOTDIR="/opt/${Q_DIRNAME}"  # INFO: You can safely change this path for testing purposes :)
 
 LOCAL_APPDIR="${HOME}/.local/share/applications"
 LOCAL_MIMEDIR="${HOME}/.local/share/mime"
@@ -207,12 +207,11 @@ function ask_yn() {
     read -p "${prompt} [y/N]: " choice    
     case "${choice}" in
         y|Y|yes|Yes|YES)
-            info "${answer_on_y}"
+            info "${answer_on_y}\n"
             return 0
             ;;
         *)
-            info "${answer_on_n}\n"\
-                "\t\t ==> Feel free to improve ${SCRIPT_TITLE} :)\n"
+            info "${answer_on_n}\n"
             return 1
             ;;
     esac
@@ -552,12 +551,13 @@ function relocate_qrootdir() {
 #
 function install_q() {
     q_dir="$(find "${HOME}" -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
-    q_old_rootdir="$(find / -maxdepth 3 -name "${Q_ROOTDIR}" -type d 2> /dev/null | head -n 1)"
+    q_old_rootdir="$(find /opt -maxdepth 3 -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
     question="Apply patches only (i.e. after Questa install without a license file, patching it now)?"
 
     if [ -d "${q_dir}" ]; then
         if [ -d "${q_old_rootdir}" ]; then
-            warn "Seems there is a similar FPGA installation already present at \"${q_old_rootdir}\"!"
+            echo ""
+            warn "Seems there is a similar FPGA installation already present at \"${q_old_rootdir}\"!\n"
             ask_yn "Do you want to remove it and install new one instead?"\
                 "Removing old stuff ..."\
                 "Leaving current install folder as it is."
