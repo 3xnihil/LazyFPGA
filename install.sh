@@ -56,7 +56,7 @@ Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
 Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
 Q_INSTALLER_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
-Q_ROOTDIR="/opt/${Q_DIRNAME}"  # INFO: You can safely change this path for testing purposes :)
+Q_ROOTDIR="/opt/testing/${Q_DIRNAME}"  # INFO: You can safely change this path for testing purposes :)
 
 LOCAL_APPDIR="${HOME}/.local/share/applications"
 LOCAL_MIMEDIR="${HOME}/.local/share/mime"
@@ -170,7 +170,7 @@ function check_distro() {
         *)
             warn "${SCRIPT_TITLE} has not been tested to work with ${DISTRO}."
             info " ==> You may proceed, but please don't expect things to work overall smoothly!"
-            ask_for_cancel
+            ask_yn
             ;;
     esac
 }
@@ -187,27 +187,32 @@ function check_desktop() {
         *)
             warn "${SCRIPT_TITLE} could work on ${XDG_CURRENT_DESKTOP} desktop, but has not been tested yet!"
             info " ==> Proceed if you like tinkering and are seasoned with your desktop environment!"
-            ask_for_cancel
+            ask_yn
             ;;
     esac
 }
 
 
-### Ask if script should cancel
+### Ask if user decision required
 #
-function ask_for_cancel() {
+function ask_yn() {
     prompt="$1"
+    answer_on_y="$2"
+    answer_on_n="$3"
+
     [ -z "${prompt}" ] && prompt="Is this okay?"
-    read -p "${prompt} [y/N]: " choice
-            
+    [ -z "${answer_on_y}" ] && answer_on_y="Moving on, but less lazy ..."
+    [ -z "${answer_on_n}" ] && answer_on_n="Cancelled on your decision."
+
+    read -p "${prompt} [y/N]: " choice    
     case "${choice}" in
         y|Y|yes|Yes|YES)
-            info "Moving on, but less lazy ..."
+            info "${answer_on_y}"
             return 0
             ;;
         *)
-            info "Cancelled on your decision.\n"\
-                "\t\t==> Feel free to improve ${SCRIPT_TITLE} :)\n"
+            info "${answer_on_n}\n"\
+                "\t\t ==> Feel free to improve ${SCRIPT_TITLE} :)\n"
             return 1
             ;;
     esac
@@ -244,10 +249,10 @@ function check_sudo() {
             ;;
         *)
             # If we are going off-road entirely ^^
-            warn "Sorry, not knowing sudoers group on ${DISTRO}!"
-            info " ==> Only answer 'yes' if you know that for your distro.\n"\
+            warn "Sorry, not knowing sudoers group of ${DISTRO}!"
+            info " ==> Only answer 'Yes' if you know that for your distro.\n"\
                 "\t\t Otherwise, ${SCRIPT_TITLE} will fail to make Quartus ready for use!\n"
-            ask_for_cancel "Are you really sure having sudo access?"
+            ask_yn "Are you really sure having sudo access?" ""
             ;;
     esac
 
@@ -466,16 +471,31 @@ function locate_qinstaller() {
 #
 function locate_qlicense() {
     Q_LICENSE_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
-    [ -f "${Q_LICENSE_URI}" ] &&\
-    ok "Found license key for Questa at \"${Q_LICENSE_URI}\"." ||\
-    (warn "Could not find any license key for Questa." &&\
-    info "If you are intending to run Questa, this will be required!\n"\
-        "\t\tIn case you have one, ideally place it inside a hidden\n"\
-        "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
-        "\t\t ==> IMPORTANT: Your license can only be found if\n"\
-        "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n\n" &&\
-    ask_for_cancel "Got it! Proceed and add license later." &&\
-    Q_LICENSE_URI="/Put/path/to/Questa/license/here!")
+    if [ -f "${Q_LICENSE_URI}" ]; then
+        ok "Found license key for Questa at \"${Q_LICENSE_URI}\"."
+    else
+        warn "Could not find any license key for Questa." &&\
+        info "If you are intending to run Questa, this will be required!\n"\
+            "\t\tIn case you have one, ideally place it inside a hidden\n"\
+            "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
+            "\t\t ==> IMPORTANT: Your license can only be found if\n"\
+            "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n"\
+            "\t\t  For more convenience, answer \"No\" now, obtain a license from Intel first,\n"\
+            "\t\t  place it as described and then run ${SCRIPT_TITLE} again.\n\n" &&\
+        ask_yn "Proceed anyways, add license manually later, which requires tinkering?"\
+            "Moving on, but be aware that Questa will not work for now!"
+    fi
+}
+
+
+### Bolster license URI with placeholder if empty (no license found)
+#
+# Makes manually adding the key's path a little bit easier for impatient users ;)
+#
+function cushion_qlicense() {
+    [ -z "${Q_LICENSE_URI}" ] &&\
+    Q_LICENSE_URI="/please/fill/in/path/to/license.dat"
+    return 0
 }
 
 
@@ -489,11 +509,11 @@ function run_qinstaller() {
         "\tIMPORTANT: Please, leave the install paths and any related settings at their defaults.\n"\
         "\t ==> Otherwise, ${SCRIPT_TITLE} might not be able to find the\n"\
         "\t  directory containing Quartus, preventing post-install assistance!\n\n"\
-        "\t ==> Make sure to uncheck the button regarding Intel's own post-installs.\n"\
-        "\t  It will only add poorly designed desktop launchers, unfortunately not helping anything."\
+        "\t ==> Make sure to uncheck the option \"After-install actions\".\n"\
+        "\t  Those only add poorly designed desktop launchers, unfortunately not helping anything.\n"\
         "\t  ${SCRIPT_TITLE} aims to solve this and a bunch of other issues for you :)\n\n"\
         "\t ==> If for some reason Quartus installer doesn't do anything after downloading and verifying your\n"\
-        "\t  selected components, please click the \"Download\" button again. This will launch the tasks.\n\n"\
+        "\t  selected components, please click the \"Download\" button again. This will do the job.\n\n"\
         "\t ==> After confirming \"OK\" when Quartus installer tells it finished, just click on \"Close\"\n"\
         "\t  at the lower right corner of the installer's main window.\n"\
         "\t  Once Quartus installer quit, ${SCRIPT_TITLE} will move on and tries to do all the rest for you :)\n"
@@ -506,25 +526,54 @@ function run_qinstaller() {
 }
 
 
-### Move Quartus' root dir to another (and more adequate) place
+### Move Quartus to /opt directory which is more adequate
 #
 function relocate_qrootdir() {
+    q_dir="$1"
+    info "Creating new Quartus root directory ..."
+    sudo mkdir -p "${Q_ROOTDIR}" &&\
+    info "Please wait a moment while moving \"${q_dir}\" to \"${Q_ROOTDIR}/\" ..." &&\
+    sudo mv "${q_dir}"/* "${Q_ROOTDIR}/" &&\
+    info "Making root the owner of Quartus ..." &&\
+    sudo chown -R root:root "${Q_ROOTDIR}" &&\
+    ok "Successfully relocated Quartus." ||\
+    (err "Something went wrong moving Quartus to \"${Q_ROOTDIR}/\"!" &&\
+    return 1)
+}
+
+
+### Integrate Quartus Prime better into the Linux filesystem tree
+#
+# IMPORTANT:
+#  This function will only select the first Quartus install
+#  in case it has spotted one, even if there should be in fact
+#  more than this (for the sake of simplicity as it is unlikely
+#  for one having more than a single current install)!
+#
+function install_q() {
     q_dir="$(find "${HOME}" -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
+    q_old_rootdir="$(find / -maxdepth 3 -name "${Q_ROOTDIR}" -type d 2> /dev/null | head -n 1)"
+    question="Apply patches only (i.e. after Questa install without a license file, patching it now)?"
 
     if [ -d "${q_dir}" ]; then
-        info "Creating Quartus' root directory ..."
-        sudo mkdir -p "${Q_ROOTDIR}" &&\
-        info "Please wait a moment while moving \"${q_dir}\" to \"${Q_ROOTDIR}/\" ..." &&\
-        sudo mv "${q_dir}"/* "${Q_ROOTDIR}/" &&\
-        info "Making root the owner of Quartus ..." &&\
-        sudo chown -R root:root "${Q_ROOTDIR}" &&\
-        ok "Successfully relocated Quartus." ||\
-        (err "Something went wrong moving Quartus to \"${Q_ROOTDIR}/\"!" &&\
-        return 1)
+        if [ -d "${q_old_rootdir}" ]; then
+            warn "Seems there is a similar FPGA installation already present at \"${q_old_rootdir}\"!"
+            ask_yn "Do you want to remove it and install new one instead?"\
+                "Removing old stuff ..."\
+                "Leaving current install folder as it is."
+            [ "$?" -eq 0 ] && relocate_qrootdir "${q_dir}" ||\
+            ask_yn "${question}" " " "Nothing changed."
+        else
+            relocate_qrootdir "${q_dir}"
+        fi
     else
-        err "Could not find \"${Q_DIRNAME}\" program folder!"
-        info " ==> Most likely, Quartus installer has just quit without installing anything."
-        return 1
+        warn "Could not find \"${Q_DIRNAME}\" program folder!"
+        info "Quartus installer didn't install anything.\n\n"\
+            "\t\t ==> Maybe you just clicked \"Cancel\" in order to apply\n"\
+            "\t\t  patches only (launchers, MIMEs, udev rules etc.).\n"\
+            "\t\t  If this occurred for another reason, please make sure\n"\
+            "\t\t  giving Quartus installer enough time to finish!\n"
+        ask_yn "${question}" " " "Nothing changed."
     fi
 }
 
@@ -694,6 +743,7 @@ function run_preinstaller() {
     check_deps &&\
     check_sudo &&\
     locate_qlicense &&\
+    cushion_qlicense &&\
     locate_qinstaller &&\
     verify_qinstaller &&\
     run_qinstaller &&\
@@ -701,27 +751,34 @@ function run_preinstaller() {
 }
 
 
-### Run actual post-install assistant
+### Fix everything Intel forgot about
 #
-function run_postinstaller() {
+function apply_patches() {
     echo ""
-    info "PERFORMING POST-INSTALLATION:\n"\
+    info "APPLYING PATCHES (POST-INSTALL):\n"\
         "\tSome of the following steps you will need to confirm with your password.\n"\
         "\tPlease enter it if prompted for.\n"\
         "\t ==> On most systems, nothing is echoed due to security reasons!\n"
 
-    relocate_qrootdir &&\
-    (create_qlaunchers;
-    create_qmimetypes;
-    setup_icons;
-    update_envvars;
-    create_udevrules)
-    
+    create_qlaunchers
+    create_qmimetypes
+    setup_icons
+    update_envvars
+    create_udevrules
+
     echo ""
     info "If you can see only green \"OK\" feedback below post-install headline\n"\
         "\t\tyou are now ready to use your Intel FPGA suite :)\n"\
         "\t\t ==> Otherwise, please investigate the error messages\n"\
         "\t\t  and fix the corresponding parts manually."
+}
+
+
+### Run actual post-install assistant
+#
+function run_postinstaller() {
+    install_q &&\
+    apply_patches
 }
 
 
