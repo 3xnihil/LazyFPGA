@@ -489,8 +489,10 @@ function run_qinstaller() {
         "\tIMPORTANT: Please, leave the install paths and any related settings at their defaults.\n"\
         "\t ==> Otherwise, ${SCRIPT_TITLE} might not be able to find the\n"\
         "\t  directory containing Quartus, preventing post-install assistance!\n\n"\
-        "\t ==> Make sure to select the checkbox regarding Intel's EULA!\n"\
-        "\t  If for some reason Quartus installer doesn't do anything after downloading and verifying your\n"\
+        "\t ==> Make sure to uncheck the button regarding Intel's own post-installs.\n"\
+        "\t  It will only add poorly designed desktop launchers, unfortunately not helping anything."\
+        "\t  ${SCRIPT_TITLE} aims to solve this and a bunch of other issues for you :)\n\n"\
+        "\t ==> If for some reason Quartus installer doesn't do anything after downloading and verifying your\n"\
         "\t  selected components, please click the \"Download\" button again. This will launch the tasks.\n\n"\
         "\t ==> After confirming \"OK\" when Quartus installer tells it finished, just click on \"Close\"\n"\
         "\t  at the lower right corner of the installer's main window.\n"\
