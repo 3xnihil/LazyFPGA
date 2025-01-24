@@ -468,7 +468,7 @@ function locate_qinstaller() {
 ### Check if user already got a license key for Questa Vsim
 #
 function locate_qlicense() {
-    Q_LICENSE_URI="$(find "${HOME}" -maxdepth 3 -name LR-*_License.dat -type f 2> /dev/null | head -n 1)"
+    Q_LICENSE_URI="$(find "${HOME}" -maxdepth 3 -name "LR-*_License.dat" -type f 2> /dev/null | head -n 1)"
     if [ -f "${Q_LICENSE_URI}" ]; then
         ok "Found license key for Questa at \"${Q_LICENSE_URI}\"."
     else
