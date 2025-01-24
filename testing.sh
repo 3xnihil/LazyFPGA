@@ -1,0 +1,1 @@
+ls && ls blubb && ls && echo "All fine :)" || echo "Something in the row has failed"
