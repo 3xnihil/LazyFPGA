@@ -18,20 +18,26 @@
 #
 # ==> This skript aims to fix the hassels coming with this incomplete setup.
 #
-# After the regular install handeled by Intel, it ...
-#
+#       It ...
 #   I)      Downloads the Quartus-installer (v. 23.1.1) directly from Intel;
 #   II)     Launches the installer after the download has finished;
-#   III)    Moves the Intel installation to the systems '/opt' directory;
-#   IV)     Changes the necessary environment variables pointing to
-#           this new directory;
-#   V)      Creates desktop entries for Quartus and Questa such that
-#           they could be launched from the desktop's menus easily;
+#   III)    Moves the Intel installation to the system's '/opt' directory;
+#   IV)     Changes the necessary environment variables required by Quartus
+#           and adds its binary dir to the Path;
+#   V)      Creates functional desktop entries for both Quartus and Questa such that
+#           they can be launched from the desktop's menus easily;
 #   VI)     Downloads nice icons for both Quartus and Questa from Github(*);
 #   VII)    Creates new MIME-types for Quartus' and Questa's project files
-#           allowing these file types to be opened directly in file managers;
-#   VIII)   Creates the necessary udev-rules for Intel "USB-blaster" support;
-#   IX)     Checks if everything is there and gives a summary to the end. :)
+#           allowing these file types i.e. to be opened directly in file managers;
+#   VIII)   Creates necessary udev-rules for Intel "USB-blaster" support, allowing
+#           programmers to interact correctly;
+#   IX)     Presents an install summary to the end.
+#
+#      ==>  Finally it tries all to enable a comfortable experience when you aim
+#           to install Intel's FPGA suite on Linux - because even Linux enthusiasts
+#           sometimes don't have any objections to simply sitting back and enjoy
+#           things getting just done for them ;)
+#
 #
 # (*) Credits to zayronxio who created this set!
 #   ==> https://github.com/zayronxio/Elementary-KDE-Icons
@@ -56,7 +62,7 @@ Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
 Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
 Q_INSTALLER_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
-Q_ROOTDIR="/opt/${Q_DIRNAME}"  # INFO: You can safely change this path for testing purposes :)
+Q_ROOTDIR="/opt/${Q_DIRNAME}"  # INFO: You can safely change '/opt' to any other location for testing purposes :)
 
 LOCAL_APPDIR="${HOME}/.local/share/applications"
 LOCAL_MIMEDIR="${HOME}/.local/share/mime"
@@ -414,9 +420,9 @@ function verify() {
             ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
             return 0
         else
-            warn "Caution: \"${local_uri}\"\n\t\tmay be corrupted and should not be used!"
-            info " ==> If you received this message after a local installer file has been spotted,\n"\
-                "\t\t  please delete that file first and run ${SCRIPT_TITLE} again :)"
+            warn "CAUTION: \"${local_uri}\"\n\t\tmay be corrupted and should not be used!"
+            info " ==> Regardlessly whether this file has been downloaded yet or spotted,\n"\
+                "\t\t  please delete it first. Then just run ${SCRIPT_TITLE} again :)"
             return 1
         fi
     else
@@ -511,7 +517,7 @@ function run_qinstaller() {
         "\t  Those only add poorly designed desktop launchers, unfortunately not helping anything.\n"\
         "\t  ${SCRIPT_TITLE} aims to solve this and a bunch of other issues for you :)\n\n"\
         "\t ==> If for some reason Quartus installer doesn't do anything after downloading and verifying your\n"\
-        "\t  selected components, please click the \"Download\" button again. This will do the job.\n\n"\
+        "\t  selected components, please click the \"Download\" button again. This will do the trick.\n\n"\
         "\t ==> After confirming \"OK\" when Quartus installer tells it finished, just click on \"Close\"\n"\
         "\t  at the lower right corner of the installer's main window.\n"\
         "\t  Once Quartus installer quit, ${SCRIPT_TITLE} will move on and tries to do all the rest for you :)\n"
