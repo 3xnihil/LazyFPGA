@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/usr/bin/bash
 #
 #######################################
 ### Lazy FPGA Helper                ###
@@ -287,15 +287,11 @@ function check_sudo() {
 function is_webresource_avail() {
     service_url="$1"
     info "Checking internet connectivity ..."
-    # ping -c 3 1.1.1.1 2>&1 /dev/null
-    # For any reason, the above statement doesn't mute ping's output,
-    # but this awful solution works:
-    ping -c 3 1.1.1.1 2> /dev/null > /dev/null
 
-    if [ "$?" -eq 0 ]; then
+    if [ "$(ping -c 3 9.9.9.9 2> /dev/null)" ]; then
         ok "Internet connected."
         info "Looking out for ${service_url} ..."
-        http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so "[1-5][0-9][0-9]")"
+        http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so [1-5][0-9][0-9])"
 
         case "${http_response}" in
             [1][0-9][0-9])
@@ -320,12 +316,13 @@ function is_webresource_avail() {
                 ;;
             *)
                 err "Client: Troubles reaching service!"
+                info "HTTP status: ${http_response}"
                 return 1
                 ;;
         esac
     else
-        err "Sorry, no internet connection!"
-        info "At least no echo from Cloudflare's DNS after three attempts."
+        err "Sorry, likely no internet connection!"
+        info "At least no echo from Quad9's DNS after three attempts."
         return 1
     fi
 }
@@ -346,9 +343,9 @@ function download() {
 
     download_dir="${local_uri%/*}"
     download_file="$(basename "${local_uri}")"
-    is_webresource_avail "${download_url}"
+    # is_webresource_avail "${download_url}"
 
-    if [ "$?" -eq 0 ]; then
+    if [ "$(is_webresource_avail "${download_url}")" ]; then
         if [ ! -d "${download_dir}" ]; then
             info "Creating ${download_dir} ..."
             mkdir -p "${download_dir}"
@@ -357,7 +354,10 @@ function download() {
         info "Now downloading from \"${service_domain}\" ...\n"
         curl -L -o "${local_uri}" "${download_url}"
 
-        if [ "$?" -eq 0 ]; then
+        # Using "$?" to investigate curl's exit status because providing it
+        # directly to the 'if' statement leads to exit status '1' for unknown reason
+        # even if the download works fine.
+        if [ "$?" ]; then
             echo ""
             ok "Download of \"${download_file}\" has finished."
             return 0
@@ -410,7 +410,7 @@ function verify() {
 
     if [ -f "${local_uri}" ]; then
         info "Checking file integrity ..."
-        if [ "$(sha1sum "${local_uri}" 2> /dev/null | grep -iq "${sha1_checksum_expected}")" ]; then
+        if [ "$(sha1sum "${local_uri}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" ]; then
             ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
             return 0
         else
@@ -668,7 +668,7 @@ function create_udevrules() {
     udev_file="51-usbblaster.rules"
     udev_uri="${udev_rulepath}/${udev_file}"
     info "Creating new udev rules for USB-blaster ..."
-    echo -e "${UDEV_USBBLASTER_STR}" | sudo tee "${udev_uri}" 2>&1 /dev/null &&\
+    echo -e "${UDEV_USBBLASTER_STR}" | sudo tee "${udev_uri}" > /dev/null &&\
     ok "Rules have been added." ||\
     (err "Failed to create udev rules at \"${udev_uri}\"!" &&\
     return 1)
