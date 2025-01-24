@@ -296,7 +296,7 @@ function is_webresource_avail() {
     if [ "$?" -eq 0 ]; then
         ok "Internet connected."
         info "Looking out for ${service_url} ..."
-        http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so [1-5][0-9][0-9])"
+        http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so "[1-5][0-9][0-9]")"
 
         case "${http_response}" in
             [1][0-9][0-9])
@@ -411,7 +411,7 @@ function verify() {
 
     if [ -f "${local_uri}" ]; then
         info "Checking file integrity ..."
-        if [ "$(sha1sum "${local_uri}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" 2>&1 > /dev/null ]; then
+        if [ "$(sha1sum ${local_uri} 2> /dev/null | grep -i ${sha1_checksum_expected} 2>&1 > /dev/null)" ]; then
             ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
             return 0
         else
