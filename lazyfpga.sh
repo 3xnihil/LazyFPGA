@@ -1,4 +1,4 @@
-#!/usr/bin/bash
+#!/usr/bin/env bash
 #
 #######################################
 ### Lazy FPGA Helper                ###
@@ -7,7 +7,7 @@
 #
 # Author: Johannes Hüffer
 # Date: 29.11.2024
-# Version: 0.2
+# Version: 0.3
 #
 # Automated postinstall-setup for RHEL- and Debian-based
 # Linux distros installing Intel FPGA components aiming post-installation
