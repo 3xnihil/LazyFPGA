@@ -349,9 +349,9 @@ function download() {
 
     download_dir="${local_uri%/*}"
     download_file="$(basename "${local_uri}")"
-    # is_webresource_avail "${download_url}"
+    is_webresource_avail "${download_url}"
 
-    if [ "$(is_webresource_avail "${download_url}")" ]; then
+    if [ $? -eq 0 ]; then
         if [ ! -d "${download_dir}" ]; then
             info "Creating ${download_dir} ..."
             mkdir -p "${download_dir}"
