@@ -363,7 +363,7 @@ function download() {
         # Using "$?" to investigate curl's exit status because providing it
         # directly to the 'if' statement leads to exit status '1' for unknown reason
         # even if the download works fine.
-        if [ "$?" ]; then
+        if [ $? -eq 0 ]; then
             echo ""
             ok "Download of \"${download_file}\" has finished."
             return 0
@@ -451,7 +451,7 @@ function locate_qinstaller() {
     if [ -f "${q_inst}" ]; then
         info "Found installer candidate ..."
         q_filesize_bytes="$(du "${q_inst}" 2> /dev/null | grep -oP '^[0-9]+')"
-        if [ "$?" -eq 0 ]; then
+        if [ $? -eq 0 ]; then
             [ "${q_filesize_bytes}" -ge 16000 ] &&\
             ok "Installer fits minimum file size." &&\
             Q_INSTALLER_URI="${q_inst}" ||\
@@ -566,8 +566,17 @@ function install_q() {
             ask_yn "Do you want to remove it and install new one instead?"\
                 "Removing old stuff ..."\
                 "Leaving current install folder as it is."
-            [ "$?" -eq 0 ] && relocate_qrootdir "${q_dir}" ||\
-            ask_yn "${question}" " " "Nothing changed."
+            # If user wants a new install, first remove old qroot and then relocate the new one:
+            if [ $? -eq 0 ]; then
+                info "To authorize removal, please enter your password if prompted for."
+                (sudo rm -rf "${q_old_rootdir}" ||\
+                err "Could not remove old root dir \"${q_old_rootdir}\"!") &&\
+                relocate_qrootdir "${q_dir}"
+            # If no new install is desired, instead ask for patch install:
+            else
+                ask_yn "${question}" " " "Nothing changed."
+                # Confirmation returns exit of '0' -> will continue just with patching below.
+            fi
         else
             relocate_qrootdir "${q_dir}"
         fi
@@ -654,12 +663,13 @@ function create_qlaunchers() {
 function update_envvars() {
     shellrc="${HOME}/.$(basename "${SHELL}")rc"
     info "Updating Quartus' environment variables in \"${shellrc}\" ..."
-    sed -i.old '/QSYS_ROOTDIR/d' "${shellrc}" 2> /dev/null &&\
+    sed -i.old '/ROOTDIR/d' "${shellrc}" 2> /dev/null &&\
     ok "Backed up previous version of \"${shellrc}\" as \"${shellrc}.old\"."
     sed -i '/LM_LICENSE_FILE/d' "${shellrc}" 2> /dev/null
-    echo -e "\n#Intel FPGA environment (Quartus Prime Lite)"\
-            "\nexport LM_LICENSE_FILE='${Q_LICENSE_URI}'"\
-            "\nexport QSYS_ROOTDIR='${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin'"\
+    echo -e "\nexport LM_LICENSE_FILE=\"${Q_LICENSE_URI}\""\
+            "\nexport QSYS_ROOTDIR=\"${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin\""\
+            "\nexport QFSE_ROOTDIR=\"${Q_ROOTDIR}/23.1std/questa_fse/bin\""\
+            "\nexport PATH=\"\${PATH}:\${QSYS_ROOTDIR}:\${QFSE_ROOTDIR}\""\
     >> "${shellrc}" &&\
     ok "Updated Quartus' environment variables." ||\
     (err "Someting went wrong when trying to update Quartus' environment variables!" &&\
