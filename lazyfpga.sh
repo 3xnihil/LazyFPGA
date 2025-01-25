@@ -1,49 +1,16 @@
 #!/usr/bin/env bash
 #
 #######################################
-### Lazy FPGA Helper                ###
+### LazyFPGA Helper                 ###
 ### for Quartus Prime Lite (23.1.1) ###
 #######################################
 #
 # Author: Johannes Hüffer
-# Date: 29.11.2024
+# Begin of development: 29.11.2024
 # Version: 0.3
-#
-# Automated postinstall-setup for RHEL- and Debian-based
-# Linux distros installing Intel FPGA components aiming post-installation
-# support after the original installer did its incomplete job.
-# Why? Because Intel for any reason (unlike on Windows) doesn't
-# deliver a complete install on Linux systems and leaves its users
-# with a kind of half-baked setup.
-#
-# ==> This skript aims to fix the hassels coming with this incomplete setup.
-#
-#       It ...
-#   I)      Downloads the Quartus-installer (v. 23.1.1) directly from Intel;
-#   II)     Launches the installer after the download has finished;
-#   III)    Moves the Intel installation to the system's '/opt' directory;
-#   IV)     Changes the necessary environment variables required by Quartus
-#           and adds its binary dir to the Path;
-#   V)      Creates functional desktop entries for both Quartus and Questa such that
-#           they can be launched from the desktop's menus easily;
-#   VI)     Downloads nice icons for both Quartus and Questa from Github(*);
-#   VII)    Creates new MIME-types for Quartus' and Questa's project files
-#           allowing these file types i.e. to be opened directly in file managers;
-#   VIII)   Creates necessary udev-rules for Intel "USB-blaster" support, allowing
-#           programmers to interact correctly;
-#   IX)     Presents an install summary to the end.
-#
-#      ==>  Finally it tries all to enable a comfortable experience when you aim
-#           to install Intel's FPGA suite on Linux - because even Linux enthusiasts
-#           sometimes don't have any objections to simply sitting back and enjoy
-#           things getting just done for them ;)
-#
-#
-# (*) Credits to zayronxio who created this set!
-#   ==> https://github.com/zayronxio/Elementary-KDE-Icons
-#
+# License: GNU GPLv3
 
-SCRIPT_TITLE="Lazy FPGA Helper"
+SCRIPT_TITLE="LazyFPGA Helper"
 HELLO_MSG="\n\t\t~~~ Welcome to Jo's ${SCRIPT_TITLE} ~~~\n"
 trap "echo -e \"\n\t\t~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
 
