@@ -40,6 +40,12 @@ as long as you are patient enough to read some text lines ;)
 * Patching primarily addresses installs which have been performed in a hurry without a license key file for Questa.
 * As this aims to be a script supporting laziness, the impatient of us will appreciate LazyFPGA's ability to update the `$LM_LICENSE_FILE` environment variable.
 
+### How to use
+1. Make script executable first: `chmod +x lazyfpga.sh`
+2. Just run it by: `./lazyfpga.sh`
+
+**Important**: *Do not run LazyFPGA as root!* If uses `sudo` whenever root privileges are required. 
+
 ### Roadmap
 Currently, LazyFPGA has its focus on *installing* Intel's FPGA suite. The patching feature mentioned above will likely be extended in future, offering users to either install or patch their setup right at the script's startup.
 However, you are welcome to improve this script or to make suggestions.
