@@ -18,6 +18,9 @@ trap "echo -e \"\n\t\t~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
 # DISTRO="$(lsb_release -si)"
 DISTRO="$(grep -oP '(?<=")[^ ]*' /etc/os-release | head -n 1)"
 
+# Dependencies: curl, git
+DEPS=( "curl" "git" )
+
 LOCAL_ICONDIR="${HOME}/.local/share/icons"
 QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/gtkwave.svg"
 QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/marble.svg"
@@ -105,7 +108,7 @@ function info() {
 ### Check running kernel
 #
 function check_platform() {
-    [ "$(uname)" == "Linux" ] ||\
+    [ "$(uname)" = "Linux" ] ||\
     (echo "  /!\\ This script only works on GNU+Linux!" &&\
     return 1)
 }
@@ -190,21 +193,43 @@ function ask_yn() {
 }
 
 
+### Append a string separated by comma
+#
+function append_str() {
+    str_to_extend="$1"
+    str_to_append="$2"
+    if [ -z "${str_to_extend}" ]; then
+        str_to_extend="${str_to_append}"
+    else
+        str_to_extend="${str_to_extend}, ${str_to_append}"
+    fi
+    echo "${str_to_extend}"
+}
+
+
 ### Verify dependencies on curl and git
 #
+# FIXME: Function always returns exit status '1'
+#   even if ${deps_unmet} is empty (and no dependencies
+#   are missing)!
+#
 function check_deps() {
-    git_path="$(which git)"
-    curl_path="$(which curl)"
-    [ -f "${git_path}" ] &&\
-    ok "Git installed." ||\
-    (err "Git not found!" &&\
-    info " ==> Please install Git first and run this skript again." &&\
-    return 1)
-    [ -f "${curl_path}" ] &&\
-    ok "Curl installed." ||\
-    (err "Curl not found!" &&\
-    info " ==> Please install Curl first and run this skript again." &&\
-    return 1)
+    for dep in "${DEPS[@]}"; do
+        dep_uri="$(which "${dep}")"
+        if [ -f "${dep_uri}" ]; then
+            ok "\"${dep}\" installed."
+        else
+            err "\"${dep}\" not found!"
+            deps_unmet="$(append_str "${deps_unmet}" "${dep}")"
+        fi
+    done
+
+    [ -n "${deps_unmet}" ] &&\
+    info " ==> Please install: ${deps_unmet}\n"\
+         "\t\t  Then run ${SCRIPT_TITLE} again.\n"
+
+    # Final exit status depends on wether any programs are missing
+    [ -z "${deps_unmet}" ]
 }
 
 
@@ -228,7 +253,7 @@ function check_sudo() {
     esac
 
     # User must not be root
-    if [ "${USER}" == "root" ]; then
+    if [ "${USER}" = "root" ]; then
         err "Running as root!"
         info "This is highly discouraged, as it puts your system to unnecessary risks!\n"\
             "\t\t ==> Please login as a regular user having access to sudo and try again."
@@ -236,7 +261,7 @@ function check_sudo() {
     fi
 
     if [ -n "${sudoers_group}" ]; then
-        [ "$(id -Gn | grep -c "${sudoers_group}")" == "1" ] &&\
+        [ "$(id -Gn | grep -c "${sudoers_group}")" = "1" ] &&\
         ok "Current user \"${USER}\" may gain elevated permissions." ||\
         (err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_TITLE}!" &&\
         info "Please make sure you may gain root privileges first, then try again.\n"\
@@ -767,4 +792,4 @@ function run_postinstaller() {
 ### RUN THIS SKRIPT ###
 clear
 echo -e "${HELLO_MSG}"
-run_preinstaller
+#run_preinstaller
