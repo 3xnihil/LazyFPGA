@@ -207,13 +207,17 @@ function append_str() {
 }
 
 
-### Verify dependencies on curl and git
+### Verify dependencies
 #
-# FIXME: Function always returns exit status '1'
-#   even if ${deps_unmet} is empty (and no dependencies
-#   are missing)!
+# ${deps_unmet} is set to empty string at
+# startup in order to clean its contents from
+# previous runs.
+# ==> Otherwise, check_deps() might
+# always exit with '1' even if all dependencies
+# are now satisfied.
 #
 function check_deps() {
+    deps_unmet=""
     for dep in "${DEPS[@]}"; do
         dep_uri="$(which "${dep}")"
         if [ -f "${dep_uri}" ]; then
