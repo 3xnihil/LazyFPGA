@@ -26,6 +26,8 @@ QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/gtkwave.svg"
 QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/marble.svg"
 G_ICON_REPO="https://github.com/zayronxio/Elementary-KDE-Icons.git"
 
+Q_LICENSE_DIR="${HOME}/.licenses"  # INFO: Change if you like.
+
 TMP_SETUP_DIR="/tmp/fpga-setup"
 Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
 Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
@@ -417,8 +419,17 @@ function verify() {
             return 0
         else
             warn "CAUTION: \"${local_uri}\"\n\t\tmay be corrupted and should not be used!"
-            info " ==> Regardlessly whether this file has been downloaded yet or spotted,\n"\
-                "\t\t  please delete it first. Then just run ${SCRIPT_TITLE} again :)"
+            info " ==> Regardlessly whether this file has been downloaded\n"\
+                "\t\t  by ${SCRIPT_TITLE} or spotted yet, you should delete it first.\n"
+            ask_yn "Delete \"${local_uri}\"?"\
+                "Just run ${SCRIPT_TITLE} again and let it download the installer for you :)\n"\
+                "Please delete manually (i.e. by issuing \"rm -f ${local_uri}\")\n"
+            # User has confirmed removal
+            if [ $? -eq 0 ]; then
+                (rm -f "${local_uri}" &&\
+                ok "\"${local_uri}\" has been removed.") ||\
+                err "Could not remove \"${local_uri}\" for some reason!"
+            fi
             return 1
         fi
     else
@@ -446,19 +457,9 @@ function locate_qinstaller() {
     q_inst="$(find / -name "${Q_INSTALLER}" -type f 2> /dev/null | head -n 1)"
     if [ -f "${q_inst}" ]; then
         info "Found installer candidate ..."
-        q_filesize_bytes="$(du "${q_inst}" 2> /dev/null | grep -oP '^[0-9]+')"
-        if [ $? -eq 0 ]; then
-            [ "${q_filesize_bytes}" -ge 16000 ] &&\
-            ok "Installer fits minimum file size." &&\
-            Q_INSTALLER_URI="${q_inst}" ||\
-            (warn "Installer candidate's file size is too small for being intact!" &&\
-            info "Murmle, murmle! Trying to download from Intel instead ..." &&\
-            download_qinstaller)
-        else
-            err "Could not determine the file size (maybe this is a permission issue)!"
-            info "Skip. Trying to download from Intel instead ..."
-            download_qinstaller
-        fi
+        Q_INSTALLER_URI="${q_inst}"
+        # ==> Candidate becomes verified at the next step,
+        #   rendering file size validation unneccessary.
     else
         info "No Quartus installer seems present on your system.\n"\
             "\t\tTrying to download it from Intel ..."
@@ -469,21 +470,51 @@ function locate_qinstaller() {
 
 ### Check if user already got a license key for Questa Vsim
 #
+# Caution: This function assumes the user has downloaded only a
+#   single key file, which will be stored inside the designated
+#   directory afterwards (i.e. "/home/user/.licenses/").
+#
+#  ==> If there is more than one file and/or with
+#   different names matching Intel's default naming convention
+#   of the keys, 'locate_qlicense()' will assume a new key is about
+#   to install!
+#
 function locate_qlicense() {
-    Q_LICENSE_URI="$(find "${HOME}" -maxdepth 3 -name "LR-*_License.dat" -type f 2> /dev/null | head -n 1)"
-    if [ -f "${Q_LICENSE_URI}" ]; then
-        ok "Found license key for Questa at \"${Q_LICENSE_URI}\"."
+    info "Please wait, scanning \"${HOME}/\" for Questa license key ..."
+    license_found="$(find "${HOME}" -name "LR-*_License.dat" -type f 2> /dev/null | head -n 1)"
+    if [ ! -f "${Q_LICENSE_DIR}/$(basename "${license_found}")" ]; then
+        if [ -f "${license_found}" ]; then
+            ok "Found license key for Questa at \"${license_found}\"."
+            info "Moving to \"${Q_LICENSE_DIR}/\" ..."
+            mkdir -p "${Q_LICENSE_DIR}" &&\
+            mv "${license_found}" "${Q_LICENSE_DIR}/" &&\
+            Q_LICENSE_URI="${Q_LICENSE_DIR}/$(basename "${license_found}")" &&\
+            ok "License key now stored at \"${Q_LICENSE_URI}\"." ||\
+            (err "Could not move license file (likely permission problem)!"
+            info " ==> Please place the key manually afterwards.\n"\
+                "\t\t Then relaunch ${SCRIPT_TITLE} for patching this after install has finished.")
+        else
+            warn "Could not find any license key for Questa." &&\
+            info "If you are intending to run Questa, this will be required!\n"\
+                "\t\tIn case you have one, ideally place it inside a hidden\n"\
+                "\t\tfolder in your home dir (i.e. \"${Q_LICENSE_DIR}/\").\n\n"\
+                "\t\t ==> IMPORTANT: Your license can only be found if\n"\
+                "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n"\
+                "\t\t  For more convenience, answer \"No\" now, obtain a license from Intel first,\n"\
+                "\t\t  place it as described and then run ${SCRIPT_TITLE} again.\n\n" &&\
+            ask_yn "Proceed anyways, add license manually later, which requires tinkering?"\
+                "Moving on, but be aware that Questa will not work for now!"
+        fi
+
+    # If a key has already been placed, we can skip the block above.
+    # ==> We have to still update ${Q_LICENSE_URI}. Otherwise, it would become
+    #   filled with the dummy-path placeholder what we don't want to happen in this case.
+    # However, it is also safer to use the exact assignment below, preventing
+    # duplicate keys elsewhere in the user's home tree from overwriting the desired key location.
+    #
     else
-        warn "Could not find any license key for Questa." &&\
-        info "If you are intending to run Questa, this will be required!\n"\
-            "\t\tIn case you have one, ideally place it inside a hidden\n"\
-            "\t\tfolder in your home dir (i.e. \"${HOME}/.licenses/\").\n\n"\
-            "\t\t ==> IMPORTANT: Your license can only be found if\n"\
-            "\t\t  it has its default name (i.e. \"LR-123456_License.dat\")!\n"\
-            "\t\t  For more convenience, answer \"No\" now, obtain a license from Intel first,\n"\
-            "\t\t  place it as described and then run ${SCRIPT_TITLE} again.\n\n" &&\
-        ask_yn "Proceed anyways, add license manually later, which requires tinkering?"\
-            "Moving on, but be aware that Questa will not work for now!"
+        Q_LICENSE_URI="${Q_LICENSE_DIR}/$(basename "${license_found}")"
+        ok "Seems license has already been installed :)"
     fi
 }
 
