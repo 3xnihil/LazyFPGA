@@ -107,11 +107,14 @@ function info() {
 }
 
 
-### Check running kernel
+### Check running kernel and CPU architecture
 #
 function check_platform() {
     [ "$(uname)" = "Linux" ] ||\
     (echo "  /!\\ This script only works on GNU+Linux!" &&\
+    return 1)
+    [ "$(uname -p | grep -ioP 'arm')" = "arm" ] &&\
+    (err "Intel's FPGA suite only runs on x86 processors!" &&\
     return 1)
 }
 
@@ -125,7 +128,7 @@ function check_shell() {
         bash|zsh)
             ok "Your login shell is \"${SHELL}\"."
             return 0
-            ;;
+            ;;j
         *)
             err "Sorry, your login shell \"${SHELL}\" is not supported by ${SCRIPT_TITLE}!"
             info "Please use ZSH or BASH instead.\n"\
@@ -827,4 +830,4 @@ function run_postinstaller() {
 ### RUN THIS SKRIPT ###
 clear
 echo -e "${HELLO_MSG}"
-run_preinstaller
+#run_preinstaller
