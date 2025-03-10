@@ -128,7 +128,7 @@ function check_shell() {
         bash|zsh)
             ok "Your login shell is \"${SHELL}\"."
             return 0
-            ;;j
+            ;;
         *)
             err "Sorry, your login shell \"${SHELL}\" is not supported by ${SCRIPT_TITLE}!"
             info "Please use ZSH or BASH instead.\n"\
@@ -830,4 +830,4 @@ function run_postinstaller() {
 ### RUN THIS SKRIPT ###
 clear
 echo -e "${HELLO_MSG}"
-#run_preinstaller
+run_preinstaller
