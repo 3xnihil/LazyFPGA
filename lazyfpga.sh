@@ -118,17 +118,21 @@ function check_platform() {
     cpu_arch="$(uname -p)"
     case "${cpu_arch}" in
         arm)
-            err "Quartus Prime Lite is only supported on x86 CPUs! Your's is based on ARM."
+            err "Quartus Prime Lite is only supported on x86-64 CPUs! Your's is based on ARM."
             return 1
             ;;
         unknown)
             warn "Could not determine CPU architecture!"
-            ask_yn "Only answer 'Yes' if your are sure that your CPU is based on x86!" \
+            ask_yn "Only answer 'Yes' if your are sure that your CPU is based on x86-64!" \
             "Hoping you were right ..." \
             "Going to quit."
             ;;
+        x86_64)
+            ok "Running on x86-64 CPU"
+            return 0
+            ;;
         *)
-            err "Quartus Prime Lite is only supported on x86 CPUs! Your's is based on \"${cpu_arch}\"."
+            err "Quartus Prime Lite is only supported on x86-64 CPUs! Your's is based on \"${cpu_arch}\"."
             return 1
             ;;
     esac
