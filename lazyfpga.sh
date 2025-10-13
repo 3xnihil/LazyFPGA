@@ -113,9 +113,24 @@ function check_platform() {
     [ "$(uname)" = "Linux" ] ||\
     (echo "  /!\\ This script only works on GNU+Linux!" &&\
     return 1)
-    [ "$(uname -p | grep -ioP 'arm')" = "arm" ] &&\
-    (err "Intel's FPGA suite only runs on x86 processors!" &&\
-    return 1)
+
+    cpu_arch="$(uname -p)"
+    case "${cpu_arch}" in
+        arm)
+            err "Quartus Prime Lite is only supported on x86 CPUs! Your's is based on ARM."
+            return 1
+            ;;
+        unknown)
+            warn "Could not determine CPU architecture!"
+            ask_yn "Only answer 'Yes' if your are sure that your CPU is based on x86!" \
+            "Hoping you were right ..." \
+            "Going to quit."
+            ;;
+        *)
+            err "Quartus Prime Lite is only supported on x86 CPUs! Your's is based on \"${cpu_arch}\"."
+            return 1
+            ;;
+    esac
 }
 
 

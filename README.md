@@ -24,8 +24,8 @@ Sometimes, even Linux users like being lazy. Therefore, this script ...
 3. Verifies and launches the installer after it has spotted any (either the just downloaded or local one)
 3. Moves the FPGA suite directory made by the Intel installer to the system's `/opt` directory
 4. Changes the necessary environment variables required by Quartus and adds its binary dir to your `$PATH`
-5. Creates fully working [1] desktop launchers for both Quartus and Questa embedding them like any other application
-6. Downloads nice icons [2] for both Quartus and Questa
+5. Creates fully working desktop launchers for both Quartus and Questa embedding them like any other application [1]
+6. Downloads nice icons for both Quartus and Questa [2]
 7. Creates new Mime-types for Quartus' and Questa's project files (*i.e. allowing these file types to be opened directly in file managers*)
 8. Creates necessary udev rules for Intel "USB-blaster" support, allowing programmers to interact correctly
 9. Finally presents an install summary to the end.
@@ -41,8 +41,9 @@ as long as you are patient enough to read some text lines ;)
 * As this aims to be a script supporting laziness, the impatient of us will appreciate LazyFPGA's ability to update the `$LM_LICENSE_FILE` environment variable.
 
 ### How to use
-1. Make script executable first: `chmod +x lazyfpga.sh`
-2. Just run it by: `./lazyfpga.sh`
+1. Clone this repo: `git clone https://github.com/3xnihil/LazyFPGA`
+2. Enter directory and make script executable: `cd ./LazyFPGA && chmod +x lazyfpga.sh`
+3. Just run it by: `./lazyfpga.sh`
 
 **Important**: *Do not run LazyFPGA as root!* It utilizes `sudo` whenever root privileges are required. 
 
