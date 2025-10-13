@@ -16,7 +16,8 @@ trap "echo -e \"\n\t\t~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
 
 # 'lsb_release' command is too rare for serving as a reliable distro id tool.
 # DISTRO="$(lsb_release -si)"
-DISTRO="$(grep -oP '(?<=")[^ ]*' /etc/os-release | head -n 1)"
+DISTRO="$(grep -oP '^NAME="\K.+[^"]' /etc/os-release)"
+DISTRO_VARIANT="$(grep -oP '^VARIANT="\K.+[^"]' /etc/os-release)"
 
 # Dependencies: curl, git
 DEPS=( "curl" "git" )
@@ -158,9 +159,24 @@ function check_shell() {
 #
 function check_distro() {
     case "${DISTRO}" in
-        Fedora|Ubuntu|Debian|'Linux Mint'|LMDE)
+        Ubuntu|Debian|'Linux Mint'|LMDE)
             ok "Running on ${DISTRO}."
             return 0
+            ;;
+        'Fedora Linux')
+            case "${DISTRO_VARIANT}" in
+                Silverblue|Kinoite|'Sway Atomic'|'Budgie Atomic'|'COSMIC Atomic')
+                    err "Sorry, Fedora ${DISTRO_VARIANT} is not supported yet!"
+                    info "==> The reason is its immutable nature. You'd must set up a Toolbox first,"
+                    info "    requiring extra tinkering. Maybe, ${SCRIPT_TITLE} will support dedicated Toolbox installs in future."
+                    info "Read more on Toolbox here: https://docs.fedoraproject.org/en-US/fedora-silverblue/toolbox/"
+                    return 1
+                    ;;
+                *)
+                    ok "Running on Fedora."
+                    return 0
+                    ;;
+            esac
             ;;
         *)
             warn "${SCRIPT_TITLE} has not been tested to work with ${DISTRO}."
