@@ -591,7 +591,9 @@ function run_qinstaller() {
     info "Making installer executable first ..."
     chmod +x "${Q_INSTALLER_URI}"
     info "Please wait, launching Quartus installer. Continue at its window!\n"
-    "${SHELL}" -c "${Q_INSTALLER_URI}"
+    "${SHELL}" -c "${Q_INSTALLER_URI}" ||\
+    (err "Quartus installer has stopped unexpectedly due to an internal error! Please investigate its messages above."
+    return 1)
 }
 
 
