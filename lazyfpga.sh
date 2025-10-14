@@ -263,7 +263,7 @@ function check_sudo() {
 		Ubuntu|Debian|'Linux Mint'|LMDE|elementaryOS)
 			sudoers_group="sudo"
 			;;
-		Fedora|RHEL|openSUSE)
+		'Fedora Linux'|RHEL*|openSUSE*)
 			sudoers_group="wheel"
 			;;
 		*)
@@ -867,7 +867,7 @@ function apply_patches() {
 		  APPLYING PATCHES (POST-INSTALL):
 		   Some of the following steps you will need to confirm with your password.
 		   Please enter it if prompted for.
-		    ==> On most systems, nothing is echoed due to security reasons!\n"
+		    ==> On most systems, nothing is echoed due to security reasons!
 		   
 	EOB
 
