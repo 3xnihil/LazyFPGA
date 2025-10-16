@@ -7,20 +7,48 @@
 #
 # Author: Johannes Hüffer
 # Begin of development: 29.11.2024
-# Version: 0.4
-# License: GNU GPLv3
+# Version: 0.5
+# Copying: GPL-3.0-only
+#
 
-SCRIPT_TITLE="LazyFPGA Helper"
-HELLO_MSG="\n${DIND}~~~ Welcome to Jo's ${SCRIPT_TITLE} ~~~\n"
-trap "echo -e \"\n${DIND}~~~ ${SCRIPT_TITLE} quit. Bye for now! :) ~~~\n\"" EXIT
+SCRIPT_PRETTY_NAME="LazyFPGA Helper"
+SCRIPT_TITLE="$(basename "${0}")"
+SCRIPT_VERSION="0.5"
+
+HELLO_MSG="\n${DIND}*-*-* Welcome to Jo's ${SCRIPT_PRETTY_NAME} *-*-*\n"
+
+# Check GNU grep requirement, because BSD's grep syntax is slightly different
+# and doesn't know the -P option going to be used
+#
+case "$(uname)" in
+	Darwin)
+		grep_bin="ggrep"
+		if [ ! -f "$(which ggrep)" ]; then
+			echo -e " To use the download option (-d) on macOS, you have to install GNU grep via Homebrew first!\n"
+			exit 1
+		fi
+		;;
+	# On Linux, GNU grep is the default
+	Linux)
+		grep_bin="grep"
+		;;
+	*)
+		# Unsupported system will be rejected below ...
+		grep_bin="grep"
+		;;
+esac
 
 # 'lsb_release' command is too rare for serving as a reliable distro id tool.
 # DISTRO="$(lsb_release -si)"
-DISTRO="$(grep -oP '^NAME="\K.+[^"]' /etc/os-release)"
-DISTRO_VARIANT="$(grep -oP '^VARIANT="\K.+[^"]' /etc/os-release)"
+# This is only useful on actual Linux systems
+if [ "$(uname)" = "Linux" ]; then
+	DISTRO="$("${grep_bin}" -oP '^NAME="\K.+[^"]' /etc/os-release)"
+	DISTRO_VARIANT="$("${grep_bin}" -oP '^VARIANT="\K.+[^"]' /etc/os-release)"
+fi
 
 # Dependencies: curl, git
 DEPS=( "curl" "git" )
+
 
 LOCAL_ICONDIR="${HOME}/.local/share/icons"
 QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/gtkwave.svg"
@@ -94,9 +122,10 @@ function info() {
 ### Check running kernel and CPU architecture
 #
 function check_platform() {
-	[ "$(uname)" = "Linux" ] ||\
-	(echo "  /!\\ This script only works on GNU+Linux!" &&\
-	return 1)
+	if [ "$(uname)" != "Linux" ]; then
+		echo -e "  /!\\ This script only works on GNU+Linux!\n"
+		return 1
+	fi
 
 	cpu_arch="$(uname -p)"
 	case "${cpu_arch}" in
@@ -111,7 +140,7 @@ function check_platform() {
 			"Going to quit."
 			;;
 		*)
-			err "Quartus Prime Lite is only supported on x86-64 CPUs! Your's is based on \"${cpu_arch}\"."
+			err "Quartus Prime Lite is only supported on x86-64 CPUs! Your's is based on ${cpu_arch}.\n"
 			return 1
 			;;
 	esac
@@ -129,7 +158,7 @@ function check_shell() {
 			return 0
 			;;
 		*)
-			err "Sorry, your login shell \"${SHELL}\" is not supported by ${SCRIPT_TITLE}!"
+			err "Sorry, your login shell \"${SHELL}\" is not supported by ${SCRIPT_PRETTY_NAME}!"
 			info "Please use ZSH or BASH instead.\n"\
 				"\t ==> I.e. by issuing \"chsh -s $(which bash)\" you can switch easily :)\n"
 			return 1
@@ -146,12 +175,13 @@ function check_distro() {
 			ok "Running on ${DISTRO}."
 			return 0
 			;;
+
 		'Fedora Linux')
 			case "${DISTRO_VARIANT}" in
 				Silverblue|Kinoite|*Atomic)
 					err "Sorry, Fedora ${DISTRO_VARIANT} is not supported yet!"
 					info " ==> The reason is its immutable nature. You'd must set up a Toolbox first,\n"\
-						"${DIND} which requires extra tinkering. Maybe, ${SCRIPT_TITLE} will support dedicated Toolbox installs in future.\n"\
+						"${DIND} which requires extra tinkering. Maybe, ${SCRIPT_PRETTY_NAME} will support dedicated Toolbox installs in future.\n"\
 						"${DIND} Read more on Toolbox here: https://docs.fedoraproject.org/en-US/fedora-silverblue/toolbox/"
 					return 1
 					;;
@@ -161,8 +191,16 @@ function check_distro() {
 					;;
 			esac
 			;;
+
+		openSUSE*)
+			err "Sorry, openSUSE - especially Tumbleweed - is not supported!"
+			info " ==> The reason is that it features very recent packages (i.e. glibc-2.41 upwards),"\
+				"${DIND} but Quartus requires especially older versions of glibc (<= 2.38). Sorry!"
+			return 1
+			;;
+
 		*)
-			warn "${SCRIPT_TITLE} has not been tested to work with ${DISTRO}."
+			warn "${SCRIPT_PRETTY_NAME} has not been tested to work with ${DISTRO}."
 			info " ==> You may proceed, but please don't expect things to work overall smoothly!"
 			ask_yn
 			;;
@@ -179,7 +217,7 @@ function check_desktop() {
 			return 0
 			;;
 		*)
-			warn "${SCRIPT_TITLE} could work on ${XDG_CURRENT_DESKTOP} desktop, but has not been tested yet!"
+			warn "${SCRIPT_PRETTY_NAME} could work on ${XDG_CURRENT_DESKTOP} desktop, but has not been tested yet!"
 			info " ==> Proceed if you are seasoned with your desktop environment!"
 			ask_yn
 			;;
@@ -249,7 +287,7 @@ function check_deps() {
 
 	[ -n "${deps_unmet}" ] &&\
 	info " ==> Please install: ${deps_unmet}\n"\
-		 "${DIND}  Then run ${SCRIPT_TITLE} again.\n"
+		 "${DIND}  Then run ${SCRIPT_PRETTY_NAME} again.\n"
 
 	# Final exit status depends on wether any programs are missing
 	[ -z "${deps_unmet}" ]
@@ -263,14 +301,14 @@ function check_sudo() {
 		Ubuntu|Debian|'Linux Mint'|LMDE|elementaryOS)
 			sudoers_group="sudo"
 			;;
-		'Fedora Linux'|RHEL*|openSUSE*)
+		'Fedora Linux'|RHEL*)
 			sudoers_group="wheel"
 			;;
 		*)
 			# If we are going off-road entirely ^^
 			warn "Sorry, not knowing sudoers group of ${DISTRO}!"
 			info " ==> Only answer 'Yes' if you know that for your distro.\n"\
-				"${DIND} Otherwise, ${SCRIPT_TITLE} will fail to make Quartus ready for use!\n"
+				"${DIND} Otherwise, ${SCRIPT_PRETTY_NAME} will fail to make Quartus ready for use!\n"
 			ask_yn "Are you really sure having sudo access?" ""
 			;;
 	esac
@@ -284,9 +322,9 @@ function check_sudo() {
 	fi
 
 	if [ -n "${sudoers_group}" ]; then
-		([ "$(id -Gn | grep -c "${sudoers_group}")" = "1" ] &&\
+		([ "$(id -Gn | "${grep_bin}" -c "${sudoers_group}")" = "1" ] &&\
 		ok "Current user \"${USER}\" may gain elevated permissions.") ||\
-		(err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_TITLE}!" &&\
+		(err "Sorry, user ${USER} does not have sufficient permissions to run ${SCRIPT_PRETTY_NAME}!" &&\
 		info "Please make sure you may gain root privileges first, then try again.\n"\
 			"${DIND} ==> Otherwise please contact your system administration." &&\
 		return 1)
@@ -312,7 +350,7 @@ function is_webresource_avail() {
 	if [ "$(ping -c 3 9.9.9.9 2> /dev/null)" ]; then
 		ok "Internet connected."
 		info "Looking out for ${service_url} ..."
-		http_response="$(curl -sI "${service_url}" | head -n 1 | grep -so [1-5][0-9][0-9])"
+		http_response="$(curl -sI "${service_url}" | head -n 1 | "${grep_bin}" -so [1-5][0-9][0-9])"
 
 		case "${http_response}" in
 			[1][0-9][0-9])
@@ -360,7 +398,7 @@ function is_webresource_avail() {
 function download() {
 	download_url="$1"
 	local_uri="$2"
-	service_domain="$(echo "${download_url}" | grep -oP '^(https?://[^/]+)')"
+	service_domain="$(echo "${download_url}" | "${grep_bin}" -oP '^(https?://[^/]+)')"
 
 	download_dir="${local_uri%/*}"
 	download_file="$(basename "${local_uri}")"
@@ -395,8 +433,17 @@ function download() {
 
 ### Download Quartus installer
 #
+# If provided with an argument containing a path,
+# it will store the downloaded Quartus installer there instead!
+#
 function download_qinstaller() {
-	download "${Q_INSTALLER_URL}" "${Q_INSTALLER_URI}"
+	if [ -z "${1}" ]; then
+		# If no custom dir is provided, choose the default one
+		custom_installer_uri="${Q_INSTALLER_URI}"
+	else
+		custom_installer_uri="${1}/${Q_INSTALLER}"
+	fi
+	download "${Q_INSTALLER_URL}" "${custom_installer_uri}"
 }
 
 
@@ -434,15 +481,15 @@ function verify() {
 
 	if [ -f "${local_uri}" ]; then
 		info "Checking file integrity ..."
-		if [ "$(sha1sum "${local_uri}" 2> /dev/null | grep -i "${sha1_checksum_expected}")" ]; then
+		if [ "$(sha1sum "${local_uri}" 2> /dev/null | "${grep_bin}" -i "${sha1_checksum_expected}")" ]; then
 			ok "\"${file_to_verify}\" matches expected checksum and seems intact :)"
 			return 0
 		else
 			warn "CAUTION: \"${local_uri}\"\n${DIND}may be corrupted and should not be used!"
 			info " ==> Regardlessly whether this file has been downloaded\n"\
-				"${DIND}  by ${SCRIPT_TITLE} or spotted yet, you should delete it first.\n"
+				"${DIND}  by ${SCRIPT_PRETTY_NAME} or spotted yet, you should delete it first.\n"
 			ask_yn "Delete \"${local_uri}\"?"\
-				"Just run ${SCRIPT_TITLE} again and let it download the installer for you :)\n"\
+				"Just run ${SCRIPT_PRETTY_NAME} again and let it download the installer for you :)\n"\
 				"Please delete manually (i.e. by issuing \"rm -f ${local_uri}\")\n"
 			# User has confirmed removal
 			if [ $? -eq 0 ]; then
@@ -515,22 +562,25 @@ function locate_qlicense() {
 			(
 				warn "Could not move license file (likely permission problem)!"
 				info " ==> Please place the key manually afterwards.\n"\
-					"${DIND} Then relaunch ${SCRIPT_TITLE} for patching this after install has finished."
+					"${DIND} Then relaunch ${SCRIPT_PRETTY_NAME} for patching this after install has finished."
 			)
 		else
-			warn "Could not find any license key for Questa." &&\
+			warn "Could not find any license key for Questa Vsim!" &&\
 			cat <<- EOB &&\
-			ask_yn "Proceed anyways, add license manually later, which requires tinkering?"\
-				"Moving on, but be aware that Questa will not work for now!"
+			ask_yn "Proceed anyways and add license later?"\
+				"Be aware that Questa will not work for now!"
 
 				If you are intending to run Questa, this will be required!
-				In case you have one, ideally place it inside a hidden
-				folder in your home dir (i.e. "${Q_LICENSE_DIR}/").
-				 ==> IMPORTANT: Your license can only be found if
-				  it has its default name (i.e. "LR-123456_License.dat")!
-				  For more convenience, answer 'No' now, obtain a license from Intel first,
-				  place it as described and then run ${SCRIPT_TITLE} again.
+				In case you have one, make sure the license key file is stored
+				anywhere inside your home directory ("${HOME}/") and has its default name
+				(i.e. "LR-123456_License.dat") such that ${SCRIPT_PRETTY_NAME} can find it!
 
+				 ==> If you don't have a license yet, you can get one from
+				     Intel's licensing center at https://licensing.intel.com
+
+				 ==> In case you want to add the license later, just run
+				     "${SCRIPT_TITLE} -p" in order to start patching!
+				  
 			EOB
 		fi
 
@@ -566,18 +616,23 @@ function run_qinstaller() {
 		PLEASE READ CAREFULLY:
 		  At next, the Intel Quartus installer will be launched.
 		  You can use it as you'd regularly do, choosing the FPGA components you need.
+		  
 		  IMPORTANT: Please, leave the install paths and any related settings at their defaults.
-		   ==> Otherwise, ${SCRIPT_TITLE} might not be able to find the
+		  
+		   ==> Otherwise, ${SCRIPT_PRETTY_NAME} might not be able to find the
 		    directory containing Quartus, preventing post-install assistance!
+		  
 		   ==> Make sure to uncheck the option "After-install actions".
 		    Those only add poorly designed desktop launchers, unfortunately not helping anything.
-		    ${SCRIPT_TITLE} aims to solve this and a bunch of other issues for you :)
+		    ${SCRIPT_PRETTY_NAME} aims to solve this and a bunch of other issues for you :)
+		  
 		   ==> If for some reason Quartus installer doesn't do anything after downloading and verifying your
 		    selected components, please click the "Download" button again. This will do the trick.
+		  	
 		   ==> After confirming "OK" when Quartus installer tells it finished, just click on "Close"
 		    at the lower right corner of the installer's main window.
-		    Once Quartus installer quit, ${SCRIPT_TITLE} will move on and tries to do all the rest for you :)
-		    
+		    Once Quartus installer quit, ${SCRIPT_PRETTY_NAME} will move on and tries to do all the rest for you :)
+		  
 	EOB
 
 	read -p 'Got it! [Enter]: '
@@ -587,7 +642,27 @@ function run_qinstaller() {
 	"${SHELL}" -c "${Q_INSTALLER_URI}" ||\
 	(
 		echo ""
-		err "Quartus installer has stopped unexpectedly due to an internal error! Please investigate its messages above."
+		err "Quartus installer has stopped unexpectedly due to an internal error!"
+		cat <<- EOB
+			 Please investigate its messages above!
+			  
+			 ==> If you see something like "libnsl.so.1: cannot open shared object file",
+			  the "problem" is that your version of ${DISTRO} ships a recent version of glibc (>= 2.38)
+			  but Quartus installer 23.1.1 still depends on those older ones!
+
+			 ==> If it's not that, but a similar message, the problem concerns a different package, but the
+			  cause is likely comparable.
+			  
+			 ==> CAUTION: DO NOT TRY TO DOWNGRADE such packages, as this WILL LIKELY BREAK YOUR ENTIRE SYSTEM!
+			  Instead, you can set up a Docker or Podman container featuring an older version of ${DISTRO}
+			  and run ${SCRIPT_PRETTY_NAME} inside of that.
+			  
+			 ==> It's recommended to consult Intel's requirement page for Quartus at
+			  https://https://www.intel.com/content/www/us/en/support/programmable/support-resources/design-software/os-support.html
+			  Here you can see which distro and version would be best to use along with a Docker or Podman container.
+			  (i) Future versions of ${SCRIPT_PRETTY_NAME} will feature this container approach, avoiding any of these problems.
+			  
+		EOB
 		return 1
 	)
 }
@@ -613,7 +688,7 @@ function relocate_qrootdir() {
 }
 
 
-### Integrate Quartus Prime better into the Linux filesystem tree
+### Detect potential previous Quartus installation inside /opt and report that
 #
 # IMPORTANT:
 #  This function will only select the first Quartus install
@@ -621,10 +696,16 @@ function relocate_qrootdir() {
 #  more than this (for the sake of simplicity as it is unlikely
 #  for one having more than a single current install)!
 #
+function find_old_qrootdir() {
+	find /opt -maxdepth 3 -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1
+}
+
+
+### Integrate Quartus Prime into the Linux filesystem tree nicely
+#
 function install_q() {
 	q_dir="$(find "${HOME}" -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
-	q_old_rootdir="$(find /opt -maxdepth 3 -name "${Q_DIRNAME}" -type d 2> /dev/null | head -n 1)"
-	question="Apply patches only (i.e. after Questa install without a license file, patching it now)?"
+	q_old_rootdir="$(find_old_qrootdir)"
 
 	if [ -d "${q_dir}" ]; then
 		if [ -d "${q_old_rootdir}" ]; then
@@ -632,34 +713,27 @@ function install_q() {
 			warn "Seems there is a similar FPGA installation already present at \"${q_old_rootdir}\"!\n"
 			ask_yn "Do you want to remove it and install new one instead?"\
 				"Removing old stuff ..."\
-				"Leaving current install folder as it is."
+				"Nothing changed." &&\
 			# If user wants a new install, first remove old qroot and then relocate the new one:
-			if [ $? -eq 0 ]; then
+			(
 				info "To authorize removal, please enter your password if prompted for."
 				(sudo rm -rf "${q_old_rootdir}" ||\
 				err "Could not remove old root dir \"${q_old_rootdir}\"!") &&\
 				relocate_qrootdir "${q_dir}"
-			# If no new install is desired, instead ask for patch install:
-			else
-				ask_yn "${question}" " " "Nothing changed."
-				# Confirmation returns exit of '0' -> will continue just with patching below.
-			fi
+			)
+			# --> If no new install is desired, status '1'
+			#	is returned by 'ask_yn' which will exit the script from here.
 		else
 			relocate_qrootdir "${q_dir}"
 		fi
 	else
-		warn "Could not find \"${Q_DIRNAME}\" program folder!"
-		# Please note: Content of this Heredoc has space-led indentation,
-		# preventing leading tabs from the script itself taken over
+		warn "Could not find \"${Q_DIRNAME}\" program folder!\n"
 		cat <<- EOB
-		    Quartus installer didn't install anything.
-		     ==> Maybe you just clicked "Cancel" in order to apply
-		      patches only (launchers, MIMEs, udev rules etc.).
-		      If this occurred for another reason, please make sure
-		      to give Quartus installer enough time to finish!
-
+			As it seems, Quartus installer has not set up anything.
+			==> Maybe you clicked "Cancel" accidentially.
+			  Please make sure to give Quartus installer enough time to finish!
 		EOB
-		ask_yn "${question}" " " "Nothing changed."
+		return 1
 	fi
 }
 
@@ -836,7 +910,7 @@ function create_qmimetypes() {
 	) ||\
 	(
 		warn "Desktop environment could not update changes automatically!"
-		info " ==> Please log out and back in again after ${SCRIPT_TITLE} finished. This works as well."
+		info " ==> Please log out and back in again after ${SCRIPT_PRETTY_NAME} finished. This works as well."
 	)
 }
 
@@ -845,8 +919,8 @@ function create_qmimetypes() {
 #
 function run_preinstaller() {
 	check_platform &&\
-	check_shell &&\
 	check_distro &&\
+	check_shell &&\
 	check_desktop &&\
 	check_deps &&\
 	check_sudo &&\
@@ -895,7 +969,122 @@ function run_postinstaller() {
 }
 
 
-## RUN THIS SKRIPT ###
-clear
-echo -e "${HELLO_MSG}"
-run_preinstaller
+### Display a short help
+#
+function show_help() {
+	cat <<- EOB
+		Usage:
+		  ${SCRIPT_TITLE} <-i  Install Quartus | -p  Patch current installation |
+		           -d <path>  Only download Quartus installer to path | -v  Show version | -h Show this help>
+		  
+		Options:
+		  -i          Downloads Quartus installer (if not present) and install it with all extras Intel forgot about
+		  
+		  -p          Patch present Quartus installation. This updates Quartus' environment variables if a license
+		              key has been placed afterwards
+		  
+		  -d <path>   Only download Quartus installer to the designated path (this won't do anything else)
+		  
+		  -v          Show version info of this script
+		  
+		  -h          Show this help
+		  
+	EOB
+}
+
+
+### Display version info
+#
+function show_version() {
+	cat <<- EOB
+		 ${SCRIPT_PRETTY_NAME} version ${SCRIPT_VERSION}
+		 Copying: GPL-3.0-only
+		 (c) Johannes Hüffer
+
+	EOB
+}
+
+
+###### RUN THIS SCRIPT ######
+
+### Parse arguments
+#
+# Available options:
+# -i							Download (if necessary) and install Quartus
+# -p							Patch present Quartus installation (updates env vars only; won't install anything)
+# -d <path to download dir>		Only download Quartus installer (won't install nor change anything)
+# -v							Show version info
+# -h							Show help
+#
+while getopts ":ipd:vh" opt; do
+	case "${opt}" in
+		# Download and install Quartus
+		i)
+			clear
+			echo -e "${HELLO_MSG}"
+			run_preinstaller
+			exit ${?}
+			;;
+
+		# Patch current installation (install license afterwards)
+		p)
+			check_platform &&\
+			check_distro
+			current_qinstallation="$(find_old_qrootdir)"
+			(
+				[ -d "${current_qinstallation}" ] &&\
+				locate_qlicense &&\
+				update_envvars &&\
+				ok "Patching finished: License installed and environment vars have been updated." &&\
+				info "You should be able to use Questa now!"
+			) ||\
+			(
+				err "Sorry, something went wrong in the patching process."
+				info " ==> Please investigate the error messages above!"
+				return 1
+			)
+			exit ${?}
+			;;
+
+		# Only download Quartus installer (and do nothing else)
+		d)
+			#check_platform || exit 1
+			([ -d "${OPTARG}" ] && download_qinstaller "${OPTARG}") ||\
+			(
+				echo -e " -d: Path does not exist! Using -d requires a valid path as positional argument!\n"
+				show_help
+				return 1
+			)
+			exit ${?}
+			;;
+
+		# Display version
+		v)
+			show_version
+			exit
+			;;
+
+		# Display help
+		h)
+			show_help
+			exit
+			;;
+
+		# Missing positional argument
+		:)
+			echo -e " -${OPTARG}: Missing argument!\n"
+			show_help
+			exit 1
+			;;
+
+		# Detected unknown argument
+		*)
+			echo -e " -${OPTARG}: Unknown argument!\n"
+			show_help
+			exit 1
+			;;
+	esac
+done
+
+# If no argument has been provided, display help message
+[ -z "${*}" ] && echo -e " You must provide at least one argument!\n" && show_help && exit 1
