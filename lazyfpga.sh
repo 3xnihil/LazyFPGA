@@ -1028,9 +1028,11 @@ while getopts ":ipd:vh" opt; do
 
 		# Patch current installation (install license afterwards)
 		p)
-			check_platform &&\
-			check_distro
-			current_qinstallation="$(find_old_qrootdir)"
+			if check_platform && check_distro; then
+				current_qinstallation="$(find_old_qrootdir)"
+			else
+				exit 1
+			fi
 			(
 				[ -d "${current_qinstallation}" ] &&\
 				locate_qlicense &&\
@@ -1048,14 +1050,14 @@ while getopts ":ipd:vh" opt; do
 
 		# Only download Quartus installer (and do nothing else)
 		d)
-			#check_platform || exit 1
-			([ -d "${OPTARG}" ] && download_qinstaller "${OPTARG}") ||\
-			(
+			if [ -d "${OPTARG}" ]; then
+				download_qinstaller "${OPTARG}"
+				exit ${?}
+			else
 				echo -e " -d: Path does not exist! Using -d requires a valid path as positional argument!\n"
 				show_help
-				return 1
-			)
-			exit ${?}
+				exit 1
+			fi
 			;;
 
 		# Display version
