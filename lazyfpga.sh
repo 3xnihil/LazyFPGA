@@ -83,6 +83,48 @@ ENDCOLOR="\e[0m"
 DIND="\t\t"	# Double INDentation
 
 
+### Patching exclusively for openSUSE systems (namely Tumbleweed)
+#
+# Quartus' installer requires older glibc versions. Newer ones provide different
+# names inside /usr/lib64, but the installer requires /usr/lib64/libnsl.so.1 to be present.
+# (i) This patch function will add a symlink, pointing to the newer libnsl.so.3 which works perfectly.
+#
+# Further, the package 'libgthread-2_0-0' will be installed, as it is also required and the installer
+# won't launch without it.
+#
+# IMPORTANT: The function itself does not verify if it is called on an openSUSE system.
+#	This has to be done before (and is guaranteed to happen inside this script)!
+#
+function apply_opensuse_patches() {
+	library_libnsl_1="/usr/lib64/libnsl.so.1"
+	library_libnsl_3="/usr/lib64/libnsl.so.3"
+	library_libgthread="/usr/lib64/libgthread-2.0.so.0"
+	package_libgthread="libgthread-2_0-0"
+
+	# Is 'libnsl.so.1' really absent? Just to make sure ...
+	if [ ! -f "${library_libnsl_1}" ]; then
+		info "${library_libnsl_1} not present: Trying to add symlink now (enter password if prompted!)"
+		(sudo ln -s "${library_libnsl_3}" "${library_libnsl_1}" &&\
+		ok "Added symlink (${library_libnsl_1} -> ${library_libnsl_3})") ||\
+		(err "Sorry, could not add symlink (${library_libnsl_1} -> ${library_libnsl_3})!"
+		return 1)
+	else
+		ok "${library_libnsl_1} already present, which is fine"
+	fi
+
+	# Is 'libgthread-2.0.so.0' really absent?
+	if [ ! -f "${library_libgthread}" ]; then
+		info "${library_libgthread} not present: Trying to install it now (enter password if prompted!)"
+		(sudo zypper install -y "${package_libgthread}" >&2 2> /dev/null &&\
+		ok "Installed missing library") ||\
+		(err "Sorry, could not install '${package_libgthread}'!"
+		return 1)
+	else
+		ok "${library_libgthread} already present. Let's move on :)"
+	fi
+}
+
+
 ### Direct error messages to STDERR (2)
 #
 function err() {
@@ -127,20 +169,21 @@ function check_platform() {
 		return 1
 	fi
 
-	cpu_arch="$(uname -p)"
+	cpu_arch="$(uname -m)"
 	case "${cpu_arch}" in
 		x86_64)
-			ok "Running on x86-64 CPU"
+			ok "CPU check passed"
 			return 0
 			;;
 		unknown)
 			warn "Could not determine CPU architecture!"
-			ask_yn "Only answer 'Yes' if your are sure that your CPU is based on x86-64!" \
+			ask_yn "Only answer 'Yes' if your are sure that your CPU is based on x86_64 architecture!" \
 			"Hoping you were right ..." \
 			"Going to quit."
 			;;
 		*)
-			err "Quartus Prime Lite is only supported on x86-64 CPUs! Your's is based on ${cpu_arch}.\n"
+			err "Quartus Prime Lite is only supported on CPUs with x86_64 architecture!"
+			info "Your's is based on ${cpu_arch}.\n"
 			return 1
 			;;
 	esac
@@ -179,10 +222,8 @@ function check_distro() {
 		'Fedora Linux')
 			case "${DISTRO_VARIANT}" in
 				Silverblue|Kinoite|*Atomic)
-					err "Sorry, Fedora ${DISTRO_VARIANT} is not supported yet!"
-					info " ==> The reason is its immutable nature. You'd must set up a Toolbox first,\n"\
-						"${DIND} which requires extra tinkering. Maybe, ${SCRIPT_PRETTY_NAME} will support dedicated Toolbox installs in future.\n"\
-						"${DIND} Read more on Toolbox here: https://docs.fedoraproject.org/en-US/fedora-silverblue/toolbox/"
+					err "Sorry, Fedora ${DISTRO_VARIANT} is not supported!"
+					info " ==> The reason is its immutable nature, preventing write access to nearly all system directories."
 					return 1
 					;;
 				*)
@@ -193,10 +234,12 @@ function check_distro() {
 			;;
 
 		openSUSE*)
-			err "Sorry, openSUSE - especially Tumbleweed - is not supported!"
-			info " ==> The reason is that it features very recent packages (i.e. glibc-2.41 upwards),"\
-				"${DIND} but Quartus requires especially older versions of glibc (<= 2.38). Sorry!"
-			return 1
+			warn "Support for openSUSE is experimental and requires a bit of extra patching!"
+			info " ==> The reason is that openSUSE, esp. Tumbleweed, features very recent packages (i.e. glibc-2.41 upwards),"\
+				"${DIND} but Quartus expects older versions especially of glibc (<= 2.38)."\
+				"${DIND} However, this action is minimal-invasive: it only installs an additional package and will place a single symlink."
+			ask_yn "Give it a try?" "Applying openSUSE patches for Quartus ..." "Keeping hands off." &&\
+			apply_opensuse_patches
 			;;
 
 		*)
