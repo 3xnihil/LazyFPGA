@@ -235,9 +235,9 @@ function check_distro() {
 
 		openSUSE*)
 			warn "Support for openSUSE is experimental and requires a bit of extra patching!"
-			info " ==> The reason is that openSUSE, esp. Tumbleweed, features very recent packages (i.e. glibc-2.41 upwards),"\
-				"${DIND} but Quartus expects older versions especially of glibc (<= 2.38)."\
-				"${DIND} However, this action is minimal-invasive: it only installs an additional package and will place a single symlink."
+			info " ==> The reason is that openSUSE, esp. Tumbleweed, features very recent packages (i.e. glibc-2.41 upwards),\n"\
+				"${DIND} but Quartus expects older versions especially of glibc (<= 2.38).\n"\
+				"${DIND} However, this action is minimal-invasive: it only installs an additional package and will place a single symlink.\n"
 			ask_yn "Give it a try?" "Applying openSUSE patches for Quartus ..." "Keeping hands off." &&\
 			apply_opensuse_patches
 			;;
