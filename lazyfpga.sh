@@ -1037,6 +1037,7 @@ while getopts ":ipd:vh" opt; do
 				[ -d "${current_qinstallation}" ] &&\
 				locate_qlicense &&\
 				update_envvars &&\
+				create_questa_launcher &&\
 				ok "Patching finished: License installed and environment vars have been updated." &&\
 				info "You should be able to use Questa now!"
 			) ||\
