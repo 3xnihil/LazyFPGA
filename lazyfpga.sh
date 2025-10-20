@@ -14,10 +14,23 @@
 SCRIPT_PRETTY_NAME="LazyFPGA Helper"
 SCRIPT_TITLE="$(basename "${0}")"
 SCRIPT_VERSION="0.5"
+PROJECT_PAGE="https://github.com/3xnihil/LazyFPGA"
 
-HELLO_MSG="\n${DIND}*-*-* Welcome to Jo's ${SCRIPT_PRETTY_NAME} *-*-*\n"
+HELLO_MSG=$(
+	cat <<- EOB
+		 *-*-*-*-*-*-*-*-*-*-*-* Welcome to Jo's ${SCRIPT_PRETTY_NAME} *-*-*-*-*-*-*-*-*-*-*-*
+		   You will be guided through the process to install Intel's FPGA suite,
+		   Quartus Prime Lite, on you GNU+Linux system. It aims to make this task as
+		   easy as possible while fixing all missing parts Intel forgot about.
+		    
+		  (i) Found a bug or have any ideas for improvement? Feel free
+		      to contribute! Join this project on ${PROJECT_PAGE}
+		 *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+		  
+	EOB
+)
 
-# Check GNU grep requirement, because BSD's grep syntax is slightly different
+# Check GNU grep requirement, because BSD grep syntax is slightly different
 # and doesn't know the -P option going to be used
 #
 case "$(uname)" in
@@ -55,7 +68,8 @@ QUESTA_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/gtkwave.svg"
 QUARTUS_ICON="${LOCAL_ICONDIR}/elementary-kde/scalable/apps/marble.svg"
 G_ICON_REPO="https://github.com/zayronxio/Elementary-KDE-Icons.git"
 
-Q_LICENSE_DIR="${HOME}/.licenses"  # INFO: Change if you like.
+# INFO: Change if you like
+Q_LICENSE_DIR="${HOME}/.licenses"
 
 TMP_SETUP_DIR="/tmp/fpga-setup"
 Q_INSTALLER="qinst-lite-linux-23.1std.1-993.run"
@@ -63,7 +77,9 @@ Q_INSTALLER_CHECKSUM="3b09df589ff5577c36af02a693a49d67d7e692ff"
 Q_INSTALLER_URL="https://downloads.intel.com/akdlm/software/acdsinst/23.1std.1/993/qinst/${Q_INSTALLER}"
 Q_INSTALLER_URI="${TMP_SETUP_DIR}/${Q_INSTALLER}"
 Q_DIRNAME="intelFPGA_lite"
-Q_ROOTDIR="/opt/${Q_DIRNAME}"  # INFO: You can safely change '/opt' to any other location for testing purposes :)
+
+# INFO: You can change '/opt' to any other location before use. However, '/opt' is recommended
+Q_ROOTDIR="/opt/${Q_DIRNAME}"
 
 LOCAL_APPDIR="${HOME}/.local/share/applications"
 LOCAL_MIMEDIR="${HOME}/.local/share/mime"
@@ -103,24 +119,24 @@ function apply_opensuse_patches() {
 
 	# Is 'libnsl.so.1' really absent? Just to make sure ...
 	if [ ! -f "${library_libnsl_1}" ]; then
-		info "${library_libnsl_1} not present: Trying to add symlink now (enter password if prompted!)"
+		info "Trying to symlink library \"${library_libnsl_1}\": Enter your password if prompted for!"
 		(sudo ln -s "${library_libnsl_3}" "${library_libnsl_1}" &&\
 		ok "Added symlink (${library_libnsl_1} -> ${library_libnsl_3})") ||\
 		(err "Sorry, could not add symlink (${library_libnsl_1} -> ${library_libnsl_3})!"
 		return 1)
 	else
-		ok "${library_libnsl_1} already present, which is fine"
+		ok "Library \"${library_libnsl_1}\" already present, which is fine"
 	fi
 
 	# Is 'libgthread-2.0.so.0' really absent?
 	if [ ! -f "${library_libgthread}" ]; then
-		info "${library_libgthread} not present: Trying to install it now (enter password if prompted!)"
-		(sudo zypper install -y "${package_libgthread}" >&2 2> /dev/null &&\
+		info "Trying to install library \"${library_libgthread}\": Enter your password if prompted for!"
+		(sudo zypper install -y "${package_libgthread}" > /dev/null &&\
 		ok "Installed missing library") ||\
 		(err "Sorry, could not install '${package_libgthread}'!"
 		return 1)
 	else
-		ok "${library_libgthread} already present. Let's move on :)"
+		ok "Library \"${library_libgthread}\" already present. Let's move on :)"
 	fi
 }
 
@@ -212,7 +228,18 @@ function check_shell() {
 
 ### Check distribution
 #
+# Offers patching for openSUSE by default.
+# If 'false' for the first argument is set,
+# no patching will be offered nor executed.
+#  ==> Used for simple distro-compatibility checks
+#  which should not do anything else. Defaults to 'true' if no arg is given.
+#
+# CAUTION: Only 'false' (and 'true' optionally) are supported arguments!
+#
 function check_distro() {
+	offer_patching="${1}"
+	[ -z "${offer_patching}" ] && offer_patching=true
+
 	case "${DISTRO}" in
 		Ubuntu|Debian|'Linux Mint'|LMDE)
 			ok "Running on ${DISTRO}."
@@ -223,23 +250,32 @@ function check_distro() {
 			case "${DISTRO_VARIANT}" in
 				Silverblue|Kinoite|*Atomic)
 					err "Sorry, Fedora ${DISTRO_VARIANT} is not supported!"
-					info " ==> The reason is its immutable nature, preventing write access to nearly all system directories."
+					info " ==> The reason is its immutable nature, preventing write access to nearly all system directories.\n"
 					return 1
 					;;
 				*)
-					ok "Running on Fedora."
+					ok "Running on Fedora ${DISTRO_VARIANT}"
 					return 0
 					;;
 			esac
 			;;
 
 		openSUSE*)
-			warn "Support for openSUSE is experimental and requires a bit of extra patching!"
-			info " ==> The reason is that openSUSE, esp. Tumbleweed, features very recent packages (i.e. glibc-2.41 upwards),\n"\
-				"${DIND} but Quartus expects older versions especially of glibc (<= 2.38).\n"\
-				"${DIND} However, this action is minimal-invasive: it only installs an additional package and will place a single symlink.\n"
-			ask_yn "Give it a try?" "Applying openSUSE patches for Quartus ..." "Keeping hands off." &&\
-			apply_opensuse_patches
+			warn "openSUSE is supported, but requires a small patch!"
+			if "${offer_patching}"; then
+				cat <<- EOB
+					  Because openSUSE (esp. Tumbleweed) ships with cutting-edge packages, versions of glibc i.e.
+					  are very recent, causing trouble in case of Quartus expecting older naming conventions
+					  for 'libnsl' inside library dir, /usr/lib64 (precisely 'libnsl.so.1').
+					   ==> This can be resolved quite easily by adding a symlink, pointing to "/usr/lib64/libnsl.so.3".
+					       Patching will further add the "libgthread" package not installed in openSUSE by default,
+					       but also required by Quartus.
+					   ==> Doing this is quite minimal and recommended.
+					  
+				EOB
+				ask_yn "Give it a try?" "Applying openSUSE patches for Quartus ..." "Keeping hands off." &&\
+				apply_opensuse_patches
+			fi
 			;;
 
 		*)
@@ -344,7 +380,7 @@ function check_sudo() {
 		Ubuntu|Debian|'Linux Mint'|LMDE|elementaryOS)
 			sudoers_group="sudo"
 			;;
-		'Fedora Linux'|RHEL*)
+		'Fedora Linux'|RHEL*|openSUSE*)
 			sudoers_group="wheel"
 			;;
 		*)
@@ -352,12 +388,12 @@ function check_sudo() {
 			warn "Sorry, not knowing sudoers group of ${DISTRO}!"
 			info " ==> Only answer 'Yes' if you know that for your distro.\n"\
 				"${DIND} Otherwise, ${SCRIPT_PRETTY_NAME} will fail to make Quartus ready for use!\n"
-			ask_yn "Are you really sure having sudo access?" ""
+			ask_yn "Are you really sure that you have sudo access?" ""
 			;;
 	esac
 
 	# User must not be root
-	if [ "${USER}" = "root" ]; then
+	if [ "${EUID}" -eq 0 ]; then
 		err "Running as root!"
 		info "This is highly discouraged, as it puts your system to unnecessary risks!\n"\
 			"${DIND} ==> Please login as a regular user having access to sudo and try again."
@@ -490,13 +526,13 @@ function download_qinstaller() {
 }
 
 
-### Clone icon repository from Github to user's icon dir
+### Clone icon repository from GitHub to user's icon dir
 #
 function setup_icons() {
 	if [ ! -d "${LOCAL_ICONDIR}/elementary-kde" ]; then
 		(
 			mkdir -p "${LOCAL_ICONDIR}" &&\
-			info "Please wait, downloading icon set from Github ..." &&\
+			info "Please wait, downloading icon set from GitHub ..." &&\
 			git clone "${G_ICON_REPO}" "${LOCAL_ICONDIR}/elementary-kde" 2> /dev/null &&\
 			ok "Icons have been set up, yay :)"
 		) ||\
@@ -635,14 +671,12 @@ function locate_qlicense() {
 	#
 	else
 		Q_LICENSE_URI="${Q_LICENSE_DIR}/$(basename "${license_found}")"
-		ok "Seems license has already been installed :)"
+		ok "Seems license has already been installed!"
 	fi
 }
 
 
 ### Bolster license URI with placeholder if empty (no license found)
-#
-# Makes manually adding the key's path a little bit easier for impatient users ;)
 #
 function cushion_qlicense() {
 	[ -z "${Q_LICENSE_URI}" ] &&\
@@ -661,13 +695,12 @@ function run_qinstaller() {
 		  You can use it as you'd regularly do, choosing the FPGA components you need.
 		  
 		  IMPORTANT: Please, leave the install paths and any related settings at their defaults.
-		  
-		   ==> Otherwise, ${SCRIPT_PRETTY_NAME} might not be able to find the
+		    Otherwise, ${SCRIPT_PRETTY_NAME} might not be able to find the
 		    directory containing Quartus, preventing post-install assistance!
 		  
-		   ==> Make sure to uncheck the option "After-install actions".
+		   ==> Make sure to uncheck the option "After-install actions"!
 		    Those only add poorly designed desktop launchers, unfortunately not helping anything.
-		    ${SCRIPT_PRETTY_NAME} aims to solve this and a bunch of other issues for you :)
+		    ${SCRIPT_PRETTY_NAME} will solve this and fix a bunch of other issues, too.
 		  
 		   ==> If for some reason Quartus installer doesn't do anything after downloading and verifying your
 		    selected components, please click the "Download" button again. This will do the trick.
@@ -690,20 +723,24 @@ function run_qinstaller() {
 			 Please investigate its messages above!
 			  
 			 ==> If you see something like "libnsl.so.1: cannot open shared object file",
-			  the "problem" is that your version of ${DISTRO} ships a recent version of glibc (>= 2.38)
-			  but Quartus installer 23.1.1 still depends on those older ones!
-
-			 ==> If it's not that, but a similar message, the problem concerns a different package, but the
-			  cause is likely comparable.
+			  the "problem" is that your version of ${DISTRO} ships a recent version of glibc (> 2.38)
+			  but Quartus installer 23.1.1 still expects those older ones!
 			  
-			 ==> CAUTION: DO NOT TRY TO DOWNGRADE such packages, as this WILL LIKELY BREAK YOUR ENTIRE SYSTEM!
-			  Instead, you can set up a Docker or Podman container featuring an older version of ${DISTRO}
-			  and run ${SCRIPT_PRETTY_NAME} inside of that.
+			 (i) ${SCRIPT_PRETTY_NAME} offers a preconfigured patch addressing this problem
+			  when run on openSUSE systems (see 'function apply_opensuse_patches() {...}').
+			  You could improve this script to fix this for your ${DISTRO} system, too.
+			  I'm happy if you contribute to this project: ${PROJECT_PAGE}
+			  
+			 ==> If it's not exactly that, but a similar message, the problem concerns a different package,
+			  but the cause is likely comparable.
+
+			 DANGER: DO NOT TRY TO DOWNGRADE SUCH PACKAGES, AS THIS WILL LIKELY BREAK YOUR ENTIRE SYSTEM!
 			  
 			 ==> It's recommended to consult Intel's requirement page for Quartus at
 			  https://https://www.intel.com/content/www/us/en/support/programmable/support-resources/design-software/os-support.html
-			  Here you can see which distro and version would be best to use along with a Docker or Podman container.
-			  (i) Future versions of ${SCRIPT_PRETTY_NAME} will feature this container approach, avoiding any of these problems.
+			  
+			 (i) Future versions of ${SCRIPT_PRETTY_NAME} will feature a containerized approach,
+			  avoiding any of these problems.
 			  
 		EOB
 		return 1
@@ -715,8 +752,14 @@ function run_qinstaller() {
 #
 function relocate_qrootdir() {
 	q_dir="$1"
-	info "Creating new Quartus root directory ..."
+	echo ""
+	info " ==> Please enter your password if prompted for\n"
+
+	# Clean up any leftovers from previous installation attempts, which likely will be an empty installer dir
+	rmdir "${q_dir}" 2> /dev/null && info "Cleaned up the zone (removed empty dir \"${q_dir}\")"
+
 	(
+		info "Trying to create new Quartus root dir at \"${Q_ROOTDIR}\"\n"
 		sudo mkdir -p "${Q_ROOTDIR}" &&\
 		info "Please wait a moment while moving \"${q_dir}\" to \"${Q_ROOTDIR}/\" ..." &&\
 		sudo mv "${q_dir}"/* "${Q_ROOTDIR}/" &&\
@@ -725,7 +768,19 @@ function relocate_qrootdir() {
 		ok "Successfully relocated Quartus."
 	) ||\
 	(
-		err "Something went wrong moving Quartus to \"${Q_ROOTDIR}/\"!" &&\
+		err "Something went wrong when trying to move Quartus to \"${Q_ROOTDIR}/\"!\n"
+		cat <<- EOB
+			 (i) Quartus installer maybe created a new directory to
+			  which it is downloading the selected components, but this folder
+			    - either remained empty for any reason or
+			    - another error occurred, which you have to investigate by looking at any
+			      messages displayed above.
+			  
+			 ==> Try to re-run the installation by "${SCRIPT_TITLE} -i". Any leftovers
+			  will be cleaned automatically. If this error persists, this could be likely
+			  related to your ${DISTRO} system Quartus might be incompatible to!
+			  
+		EOB
 		return 1
 	)
 }
@@ -770,11 +825,22 @@ function install_q() {
 			relocate_qrootdir "${q_dir}"
 		fi
 	else
-		warn "Could not find \"${Q_DIRNAME}\" program folder!\n"
+		echo ""
+		err "Could not find \"${Q_DIRNAME}\" program folder!\n"
 		cat <<- EOB
-			As it seems, Quartus installer has not set up anything.
-			==> Maybe you clicked "Cancel" accidentially.
-			  Please make sure to give Quartus installer enough time to finish!
+			 (i) As it seems, Quartus installer did not download anything.
+			  Maybe you clicked "Cancel" accidentially.
+			  
+			 ==> If everything looked fine and each option you selected showed a green checkmark,
+			  you have to click "Download" (even being contra-intuitive, but it works in this case)!
+			  Just re-run "${SCRIPT_TITLE} -i", choose "Download" after the checkmarks appeared,
+			  and you should be fine :)
+			  
+			 ==> If the above case does not apply, currently ${SCRIPT_PRETTY_NAME} cannot do anything!
+			  Please make sure to give Quartus installer enough time to download all components.
+			  It will show a message if it has completed its tasks. After confirming that with "OK",
+			  you can safely click on "Close" in the lower right corner of the installer window.
+			  
 		EOB
 		return 1
 	fi
@@ -870,7 +936,7 @@ function update_envvars() {
 	(err "Someting went wrong when trying to update Quartus' environment variables!" &&\
 	return 1)
 		export LM_LICENSE_FILE="${Q_LICENSE_URI}"
-		export QSYS_ROOTDIR="${Q_ROOTDIR}/23.1std/quartus/sopc_builder/bin"
+		export QSYS_ROOTDIR="${Q_ROOTDIR}/23.1std/quartus/bin"
 		export QFSE_ROOTDIR="${Q_ROOTDIR}/23.1std/questa_fse/bin"
 		export PATH="\${PATH}:\${QSYS_ROOTDIR}:\${QFSE_ROOTDIR}"
 	EOB
@@ -980,13 +1046,7 @@ function run_preinstaller() {
 #
 function apply_patches() {
 	echo ""
-	cat <<- EOB
-		  APPLYING PATCHES (POST-INSTALL):
-		   Some of the following steps you will need to confirm with your password.
-		   Please enter it if prompted for.
-		    ==> On most systems, nothing is echoed due to security reasons!
-		   
-	EOB
+	info " ==> Performing post-installation\n"
 
 	create_qlaunchers
 	create_qmimetypes
@@ -1012,13 +1072,74 @@ function run_postinstaller() {
 }
 
 
+### In case the user wants to remove entire Quartus install
+#
+function run_uninstaller() {
+	qpf_mime_uri="${LOCAL_MIMEDIR}/packages/application-x-qpf.xml"
+	mpf_mime_uri="${LOCAL_MIMEDIR}/packages/application-x-mpf.xml"
+	udev_uri="/etc/udev/rules.d/51-usbblaster.rules"
+
+	files_to_clean=(
+		"${QUARTUS_DESKTOP_LAUNCHER_URI}" "${QUESTA_DESKTOP_LAUNCHER_URI}"
+		"${mpf_mime_uri}" "${qpf_mime_uri}" "${udev_uri}"
+	)
+	dirs_to_clean=(
+		"${Q_ROOTDIR}"
+	)
+
+	warn "THIS WILL DELETE YOUR ENTIRE FPGA QUARTUS/QUESTA INSTALLATION!"
+	if ask_yn "Do you really want to proceed?" "Now removing Quartus and all of its components" ""; then
+		info " ==> Please enter your password if prompted for\n"
+
+		# Remove all files listed above. Just use sudo if necessary (it's a bit safer)
+		for file in "${files_to_clean[@]}"; do
+			was_present=false
+
+			if [ -f "${file}" ]; then
+				was_present=true
+				owner="$(stat -c '%U' "${file}")"
+				([ "${owner}" = "root" ] && sudo rm -f "${file}") || rm -f "${file}"
+			else
+				info "File \"${file}\" already removed"
+			fi
+
+			# Test if file has actually been deleted
+			if "${was_present}"; then 
+				([ ! -f "${file}" ] && ok "Removed file \"${file}\"") ||\
+				err "Could not remove file \"${file}\"!"
+			fi
+		done
+
+		# Remove all directories listed above similarly
+		for dir in "${dirs_to_clean[@]}"; do
+			was_present=false
+
+			if [ -d "${dir}" ]; then
+				was_present=true
+				owner="$(stat -c '%U' "${dir}")"
+				([ "${owner}" = "root" ] && sudo rm -rf "${dir}") || rm -rf "${dir}"
+			else
+				info "Directory \"${dir}\" already removed"
+			fi
+
+			# Test if directory has actually been deleted
+			if "${was_present}"; then
+				([ ! -d "${dir}" ] && ok "Removed directory \"${dir}\"") ||\
+				err "Could not remove directory \"${dir}\"!"
+			fi
+		done
+	fi
+}
+
+
 ### Display a short help
 #
 function show_help() {
 	cat <<- EOB
 		Usage:
 		  ${SCRIPT_TITLE} <-i  Install Quartus | -p  Patch current installation |
-		           -d <path>  Only download Quartus installer to path | -v  Show version | -h Show this help>
+		           -d <path>  Only download Quartus installer to path |
+		           -u  Uninstall present Quartus | -v  Show version | -h Show this help>
 		  
 		Options:
 		  -i          Downloads Quartus installer (if not present) and install it with all extras Intel forgot about
@@ -1027,6 +1148,8 @@ function show_help() {
 		              key has been placed afterwards
 		  
 		  -d <path>   Only download Quartus installer to the designated path (this won't do anything else)
+		  
+		  -u          Uninstall present Quartus installation and remove its desktop integration (launchers, mimes, udev rules)
 		  
 		  -v          Show version info of this script
 		  
@@ -1056,10 +1179,11 @@ function show_version() {
 # -i							Download (if necessary) and install Quartus
 # -p							Patch present Quartus installation (updates env vars only; won't install anything)
 # -d <path to download dir>		Only download Quartus installer (won't install nor change anything)
+# -u							Uninstall present Quartus installation
 # -v							Show version info
 # -h							Show help
 #
-while getopts ":ipd:vh" opt; do
+while getopts ":ipd:uvh" opt; do
 	case "${opt}" in
 		# Download and install Quartus
 		i)
@@ -1071,7 +1195,13 @@ while getopts ":ipd:vh" opt; do
 
 		# Patch current installation (install license afterwards)
 		p)
-			if check_platform && check_distro; then
+			# Info: 'check_distro false' looks odd and suggests distro wouldn't be checked at all,
+			#	which is not the case!
+			#	The argument ('false') controls whether patching for openSUSE will be offered.
+			#	==> I omitted switches for any function used in this script to avoid positional
+			#		arguments, keeping things simple. But here it could be better to add one
+			#
+			if check_platform && check_distro false; then
 				current_qinstallation="$(find_old_qrootdir)"
 			else
 				exit 1
@@ -1100,6 +1230,23 @@ while getopts ":ipd:vh" opt; do
 			else
 				echo -e " -d: Path does not exist! Using -d requires a valid path as positional argument!\n"
 				show_help
+				exit 1
+			fi
+			;;
+
+		# Uninstall current Quartus installation (if any)
+		u)
+			# Info: same as in p)
+			if check_platform && check_distro false; then
+				if [ ! -d "${Q_ROOTDIR}" ]; then
+					ask_yn "Seems there is no Quartus installation present. Continue anyways?"\
+						"Looking for any leftovers ;)" "" &&\
+					run_uninstaller
+				else
+					run_uninstaller
+				fi
+				exit
+			else
 				exit 1
 			fi
 			;;
