@@ -32,6 +32,7 @@ Sometimes, even Linux users like being lazy.
 9. **Creates necessary udev rules** for Intel "USB-blaster" support, allowing programmers to interact correctly
 10. **Can install license for Questa** afterwards and will update all of its environment variables
 11. **Can just download Intel's installer only** (for download mode, macOS is supported too)
+12. **Can also remove an installation** made by this script if you don't need your FPGA suite anymore
 
 ### Be intuitive
 You can **use LazyFPGA script right away** without reading the Readme. The script will guide you through the process and give advice whenever anything does not work as it should.
@@ -53,7 +54,7 @@ You can **use LazyFPGA script right away** without reading the Readme. The scrip
 
 
 ### How to use
-`./lazyfpga.sh <-i | -p | -d <path> | -v | -h>`
+`./lazyfpga.sh <-i | -p | -d <path> | -u | -v | -h>`
 
 #### Options
 * `-i` **Download Quartus installer** (if not present) and **install it automatically along all important steps Intel forgot about**
@@ -63,6 +64,9 @@ You can **use LazyFPGA script right away** without reading the Readme. The scrip
 
 
 * `-d <path>` **Only download Quartus installer** to the designated **path** (this won't do anything else). Works also on macOS if GNU grep is available.
+
+
+* `-u` **Uninstall present Quartus setup** and remove its desktop integration along with USB-blaster udev rules.
 
 
 * `-v` **Show version info** of this script
