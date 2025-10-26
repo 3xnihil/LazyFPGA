@@ -1,8 +1,8 @@
-# LazyFPGA
+# Install Quartus Prime the lazy way
 
-## (Nearly) fully automated setup for Intel FPGA supporting RHEL- and Debian-based GNU+Linux distros
-This helper script **aims to greatly improve user experience** of the **offical Quartus Prime Lite installer**
-by automatically doing all the stuff you'd still had to fix after install of which Intel forgot about.
+## LazyFPGA: a widely automated setup for Intel's FPGA suite, supporting RHEL- and Debian-based GNU+Linux distros
+This script **aims to greatly improve user experience** of the **offical Quartus Prime Lite installer**
+by automatically doing all the stuff Intel forgot about and you'd still had to fix after running it.
 
 ### Requirements
 * **GNU+Linux distro based on RHEL or Debian** (*Fedora Workstation* and *Ubuntu* recommended).
@@ -10,16 +10,20 @@ by automatically doing all the stuff you'd still had to fix after install of whi
 * **Further requirements for Quartus Prime Lite [mentioned by Intel](https://www.intel.com/content/www/us/en/support/programmable/support-resources/design-software/os-support.html)**
 * If you intend to run **Questa (Vsim), a [license key file](https://licensing.intel.com)**
 
-### Status quo
-* The **original installer** does an **incomplete job**
-* **Intel** does not deliver **neither a package nor a fully working installer for Linux distros** (unlike on Windows)
+### Motivation
+* The **original installer** does an **incomplete job.** On Linux, it is limited to download Quartus' components on Linux, but won't actually *install* all the stuff.
+
+* **Intel** does not deliver **neither a package nor a fully working installer for Linux distros** (unlike on Windows).
+
 * **By default, Linux users are left behind** with a less than half-baked setup and have to tinker around.
 
+* **Information on how to make Quartus eventually work is spread across a bunch of different places** and mostly incomplete.
+
 ### How it helps
-**LazyFPGA aims to fill this gap.** It saves the hassels coming with an incomplete setup.
+**LazyFPGA aims to fill this gap.** It saves the hassels coming with an incomplete setup. It puts all the information out there right into a single script and hopefully saves yout a lot of headache
 Sometimes, even Linux users like being lazy.
 
-**This script** ...
+**LazyFPGA** ...
 
 1. **Searches for an installer** already stored locally on your machine
 2. **Downloads the Quartus installer** (v23.1.1) directly [from Intel](https://www.intel.com/content/www/us/en/software-kit/825277/intel-quartus-prime-lite-edition-design-software-version-23-1-1-for-linux.html) if there is none
@@ -35,7 +39,7 @@ Sometimes, even Linux users like being lazy.
 12. **Can also remove an installation** made by this script if you don't need your FPGA suite anymore
 
 ### Be intuitive
-You can **use LazyFPGA script right away** without reading the Readme. The script will guide you through the process and give advice whenever anything does not work as it should.
+You can **use LazyFPGA script right away** without reading the Readme. The script will guide you through the process and give advice whenever anything does not work as intended.
 
 ### Additional features
 * **Patching**: LazyFGPA can patch an install which it has applied previously, **addressing subsequent license installs**
