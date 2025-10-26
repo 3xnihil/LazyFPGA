@@ -11,16 +11,17 @@ by automatically doing all the stuff Intel forgot about and you'd still had to f
 * If you intend to run **Questa (Vsim), a [license key file](https://licensing.intel.com)**
 
 ### Motivation
-* The **original installer** does an **incomplete job.** On Linux, it is limited to download Quartus' components on Linux, but won't actually *install* all the stuff.
+* The **original "installer" does not do its job.** Unlike on Windows, on Linux it is limited to download Quartus' components, but won't actually *install* all the stuff. **Making it usable Intel lets up to you ...**
 
-* **Intel** does not deliver **neither a package nor a fully working installer for Linux distros** (unlike on Windows).
-
-* **By default, Linux users are left behind** with a less than half-baked setup and have to tinker around.
+* **Nor Intel provides a (closed-source) package for Linux distros.**
 
 * **Information on how to make Quartus eventually work is spread across a bunch of different places** and mostly incomplete.
 
+➡️ **By default, Linux users are left behind** with a less than half-baked setup and have to tinker around.
+
+
 ### How it helps
-**LazyFPGA aims to fill this gap.** It saves the hassels coming with an incomplete setup. It puts all the information out there right into a single script and hopefully saves yout a lot of headache
+**LazyFPGA aims to fill this gap.** It saves the hassels coming with an incomplete setup. It puts all the information out there right into a single script and hopefully saves yout a lot of headache.
 Sometimes, even Linux users like being lazy.
 
 **LazyFPGA** ...
