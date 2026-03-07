@@ -59,9 +59,9 @@ function remove_container_setup() {
 		  
 	EOB
 	if (
-		"${PROVIDER_CMD}" container rm "${CONTAINER_NAME}" &&\
-		"${PROVIDER_CMD}" image rm "${IMAGE_NAME}" &&\
-		"${PROVIDER_CMD}" image rm ubuntu:22.04 &&\
+		"${PROVIDER_CMD}" container rm -f "${CONTAINER_NAME}" &&\
+		"${PROVIDER_CMD}" image rm -f "${IMAGE_NAME}" &&\
+		"${PROVIDER_CMD}" image rm -f ubuntu:22.04 &&\
 		"${PROVIDER_CMD}" buildx prune
 	); then
 		ok "Removed old container setup"
@@ -69,6 +69,7 @@ function remove_container_setup() {
 	else
 		err "At least one of the removal steps has failed!"
 		cat <<- EOB
+			  
 			 ==> Try these steps manually:
 			  1) Please remove the damaged container itself first:
 			    ${PROVIDER_CMD} container rm ${CONTAINER_NAME}
@@ -90,6 +91,33 @@ function remove_container_setup() {
 	fi
 }
 
+# Compare system times between host and container (for debugging purposes only)
+function compare_systime_settings() {
+	container_time_utc="$(${PROVIDER_CMD} container run --replace --name "${CONTAINER_NAME}-test" "${IMAGE_NAME}" date +%s)"
+	host_time_utc="$(date +%s)"
+	time_diff_secs=$(( container_time_utc - host_time_utc ))
+	time_diff_secs="${time_diff_secs#-}"
+	if [[ "${time_diff_secs}" -eq 0 ]]; then
+		cat <<- EOB
+			 Host and container system time are synchronized perfectly.
+			  --> However, please make sure that the actual system time set on your PC is correct!
+			  
+		EOB
+		return 0
+	else
+		cat <<- EOB
+			 Time set on host (your PC): $(date)
+			 Time set on container:      $(${PROVIDER_CMD} container run --replace --name "${CONTAINER_NAME}-test" "${IMAGE_NAME}" date)
+			 Time difference in seconds: ${time_diff_secs}
+			  
+			 --> Please adjust your PC's time setting!
+			   Then, try to run ${SCRIPT_PRETTY_NAME} again.
+			  
+		EOB
+		return 1
+	fi
+}
+
 # Launch the Intel setup on first container start automatically
 function launch_intel_setup() {
 	info "Just a moment, distrobox init runs ..."
@@ -101,9 +129,36 @@ function launch_intel_setup() {
 		return 0
 	else
 		err "Sorry, distrobox had problems to initialize the container!"
-		ask_yn "Do you want to auto-remove the problematic container setup?" \
-			"Starting auto-removal ..." &&\
-			remove_container_setup
+		cat <<- EOB
+			  
+			 ==> Two main issues might have caused this:
+			  i)  Base image corruption. If this happened, a container
+			      created from such an image likely will have trouble.
+			  ii) System time mismatch. The container's system time
+			      is not in sync with that of the host system, causing
+			      the container's initial package-index update to fail.
+			  
+			 --> Try to remove the problematic container setup first to
+			  eliminate (i) as a cause. Answer 'Yes' at the next prompt.
+			  Then run ${SCRIPT_PRETTY_NAME} again.
+			 --> Should the problem persist, likely (ii) is the cause.
+			  Answer 'No' at the next prompt and 'Yes' at the second.
+			  Then compare the system time set on your computer to the time set
+			  on the container. If they differ, please adjust your computer's
+			  system time. The updated time will be propagated to the container
+			  automatically, solving the issue.
+			 --> In case none of these steps have helped, please investigate
+			  the container log by yourself:
+			   ${PROVIDER_CMD} logs -f ${CONTAINER_NAME}
+			  
+		EOB
+		ask_yn "(i) Do you want to auto-remove the problematic container setup?" \
+			"Starting auto-removal ..." "Switching to next option ..." &&\
+			remove_container_setup &&\
+			exit 1
+		ask_yn "(ii) Do you want to compare system time settings?" \
+			"Comparing time settings ..." &&\
+			compare_systime_settings
 		# Prevent the post-install stage from launching in this case!
 		exit 1
 	fi
