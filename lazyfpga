@@ -1,0 +1,116 @@
+#!/usr/bin/env bash
+#
+# Lazy FPGA Container Builder
+#
+# Author: Johannes Hüffer
+# Begin of development: 29.11.2024
+# Version: 0.1.0
+# Copying: GPL-3.0-only
+#
+# This script initializes and launches the Lazy FPGA setup routine.
+#
+# It offers the following start options:
+#	- 	No options at all (the "lazy" variant).
+#		Lazy FPGA tries to figure out these steps automatically:
+#		  a) It will download the Intel Quartus setup for you if none can be found in user's home dir and
+#		  b) It searches for a Questa license key file and adopts its path automatically if found one.
+#	-	Provide an Intel Quartus setup file explicitly
+#	-	Provide a Questa license key file explicitly
+#	-	Provide a custom path for the container's home directory
+#	-	Uninstall a containerized Quartus setup which has been applied by Lazy FPGA
+#	-	Show a brief help
+#
+# Usage: lazyfpga [ -s <setup-file> ] [ -l <license-key-file> ] [ -c <container-home-path> ]
+#			| [ -u  uninstall ] | [ -h  show help ] | [ -v  show version ]
+#
+
+source scripts/lib/environment.sh
+source scripts/lib/feedback.sh
+source scripts/lib/search.sh
+
+
+while getopts ":s:l:c:uhv" opt; do
+	case "${opt}" in
+		# Custom setup file
+		s)
+			if [[ -f "${OPTARG}" ]]; then
+				Q_INSTALLER="${OPTARG}"
+				Q_INSTALLER_NAME="$(basename "${OPTARG}")"
+			else
+				echo -e " -s: Requires a valid file path as positional argument!\n"
+				show_help
+				exit 1
+			fi
+			;;
+
+		# Set license key file for Questa manually
+		l)
+			if [[ -f "${OPTARG}" ]]; then
+				LM_LICENSE_FILE="${OPTARG}"
+			else
+				echo -e " -l: Requires a valid file path as positional argument!\n"
+				show_help
+				exit 1
+			fi
+			;;
+
+		# Custom container home path
+		c)
+			if [[ -d "${OPTARG}" ]] && [[ -O "${OPTARG}" ]]; then
+				CONTAINER_HOME="${OPTARG}"
+			else
+				echo -e " -c: Make sure the directory exists and ${USER} has ownership!\n"
+				exit 1
+			fi
+			;;
+
+		# TODO: Uninstall Quartus container and desktop integration
+		u)
+			echo -e " To be implemented! Uninstall option available soon!\n"
+			exit
+			;;
+		
+		# Display usage
+		h)
+			show_help
+			exit
+			;;
+		
+		# Display script version
+		v)
+			show_version
+			exit
+			;;
+		
+		# Missing positional argument
+		:)
+			echo -e " -${OPTARG}: Requires an argument!\n"
+			show_help
+			exit 1
+			;;
+		
+		# Detected unkown argument
+		*)
+			echo -e " -${OPTARG}: Unknown argument!\n"
+			show_help
+			exit 1
+			;;
+	esac
+done
+
+# If no argument has been provided, show long greeter and ask whether to start or cancel
+if [[ -z "$*" ]]; then
+	clear; greet_long
+	if ask_yn "Do you want to install Quartus Prime Lite containerized via lazy-method?" \
+		"Launching ..." \
+		"See you!"; then
+			# Nothing to do, just continue
+			true
+	else
+		# User left install
+		exit
+	fi
+fi
+
+# Launch pre-installer
+source scripts/pre-install.sh
