@@ -99,12 +99,13 @@ function remove_desktop_integration() {
 # Remove container home directory
 function remove_container_home() {
 	info "Removing container home directory, \"${CONTAINER_HOME}\" ..."
-	if rm -rf "${CONTAINER_HOME}" 2> /dev/null; then
+	if sudo rm -rf "${CONTAINER_HOME}" 2> /dev/null; then
 		ok "Successfully removed"
 		return 0
 	else
 		err "Sorry, could not remove!"
 		cat <<- EOB
+			  
 			 ==> Please note that auto-removal is only supported
 			  for the default container home directory!
 			  If you chose a custom path for install, please remove
