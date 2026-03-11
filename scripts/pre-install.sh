@@ -303,6 +303,8 @@ function fetch_qinstaller() {
 			info "Could not find an Intel setup file locally. Going to download ..."
 			download_qinstaller "${IMAGE_BUILD_CONTEXT}"
 		fi
+		# Ensure the setup's default path is set, because it had been empty up to this point!
+		Q_INSTALLER="${IMAGE_BUILD_CONTEXT}/${Q_INSTALLER_NAME}"
 	fi
 	# Verify setup's integrity
 	if verify "${Q_INSTALLER}" "${Q_INSTALLER_CHECKSUM}"; then

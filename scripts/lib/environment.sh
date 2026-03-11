@@ -20,7 +20,7 @@
 
 ### 1) These variables may be customized OPTIONALLY (but don't need to)
 export SCRIPT_TITLE="lazyfpga"
-export SCRIPT_PRETTY_NAME="Lazy FPGA Container Builder"
+export SCRIPT_PRETTY_NAME="Lazy FPGA Containerized"
 export SCRIPT_VERSION="0.1.0"
 export IMAGE_NAME="fpga-image:latest"
 export CONTAINER_NAME="fpga-container"

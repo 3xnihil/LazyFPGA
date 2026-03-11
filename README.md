@@ -1,77 +1,111 @@
 # Install Quartus Prime the lazy way
 
-## LazyFPGA: a widely automated setup for Intel's FPGA suite, supporting RHEL- and Debian-based GNU+Linux distros
-This script **aims to greatly improve user experience** of the **offical Quartus Prime Lite installer**
-by automatically doing all the stuff Intel forgot about and you'd still had to fix after running it.
+## Lazy FPGA Containerized: automated setup for Intel's FPGA suite, supporting a wide range of different GNU+Linux distributions
+**This CLI tool aims to elevate user experience** of the offical **Quartus Prime Lite** FPGA software and its installer **to a new level** and enables to **run the FPGA suite on almost any GNU+Linux distro** of your choice.
 
-### Requirements
-* **GNU+Linux distro based on RHEL or Debian** (*Fedora Workstation* and *Ubuntu* recommended).
-* **ZSH or BASH as login shell**
-* **Further requirements for Quartus Prime Lite [mentioned by Intel](https://www.intel.com/content/www/us/en/support/programmable/support-resources/design-software/os-support.html)**
+### 🎯 Features
+
+* 🐚 **100% Bash** shell code for native support
+* 📦 **Containerized approach** for maximum flexibility and reliability
+* 💡 **Utilizes [Distrobox](https://distrobox.it/)** as a frontend to **support both [Podman](https://podman.io/) and [Docker](https://www.docker.com/)**
+* 🐧 **Supports distro freedom**
+* 🪶 **Smooth operation** as containerization solves most compatibility issues
+
+
+### ℹ️ Requirements
+
+* **GNU+Linux distro** supporting and have **Podman** or **Docker** installed (1)
+* **Distrobox** installed (2)
+* **CPU featuring x86 architecture** with 64 bits
+* **ZSH or BASH as login shell** (3)
+* **Further requirements for Quartus Prime Lite [mentioned by Intel](https://www.intel.com/content/www/us/en/support/programmable/support-resources/design-software/os-support.html)**, but only regarding hardware limitations!
 * If you intend to run **Questa (Vsim), a [license key file](https://licensing.intel.com)**
 
-### Motivation
-* The **original "installer" does not do its job.** Unlike on Windows, on Linux it is limited to download Quartus' components, but won't actually *install* all the stuff. **Making it usable Intel lets up to you ...**
+(1) *In case you don't have a certain preference yet, I recommend Podman.*\
+(2) *It serves as a frontend and I'm sure you will get to love it independently from its purpose for Lazy FPGA Containerized, as it's very versatile.*\
+(3) *Currently. This will be fixed soon, as it is only relevant if you want automatic integration of the FPGA CLI tools, too.*
+
+
+### 🌱 Motivation
+
+* The **original "installer" is entirely insufficient.** Unlike on Windows, on Linux it is limited to download Quartus' components and does a kind of preparation, but won't actually *install* all the stuff. **Making it usable Intel lets up to you ...**
 
 * **Nor Intel provides a (closed-source) package for Linux distros.**
 
 * **Information on how to make Quartus eventually work is spread across a bunch of different places** and mostly incomplete.
 
-➡️ **By default, Linux users are left behind** with a less than half-baked setup and have to tinker around.
+* **From scratch, you are limited to certain distros** (Ubuntu, RHEL) and versions
+
+➡️ **By default, Linux users are left behind** with a less than half-baked setup, have to tinker around and **must fear their setup could break** if they upgrade their OS to a (more) recent version.
 
 
-### How it helps
-**LazyFPGA aims to fill this gap.** It saves the hassels coming with an incomplete setup. It puts all the information out there right into a single script and hopefully saves yout a lot of headache.
-Sometimes, even Linux users like being lazy.
+### 💡 How it helps
 
-**LazyFPGA** ...
+**Lazy FPGA Containerized solves these shortcomings.** It saves the hassels coming with an incomplete setup and missing/broken dependencies.
 
-1. **Searches for an installer** already stored locally on your machine
-2. **Downloads the Quartus installer** (v23.1.1) directly [from Intel](https://www.intel.com/content/www/us/en/software-kit/825277/intel-quartus-prime-lite-edition-design-software-version-23-1-1-for-linux.html) if there is none
-3. **Verifies and launches the installer** after it has spotted any (either the just downloaded or local one)
-4. **Moves the FPGA suite directory** made by the Intel installer to the system's `/opt` directory
-5. **Changes the necessary environment variables** required by Quartus and adds its binary dir to your `$PATH`
-6. **Creates fully working desktop launchers** for both Quartus and Questa embedding them like any other application [1]
-7. **Downloads nice icons** for both Quartus and Questa [2]
-8. **Creates new Mime-types** for Quartus' and Questa's project files (*i.e. allowing these file types to be opened directly from inside file managers*)
-9. **Creates necessary udev rules** for Intel "USB-blaster" support, allowing programmers to interact correctly
-10. **Can install license for Questa** afterwards and will update all of its environment variables
-11. **Can just download Intel's installer only** (for download mode, macOS is supported too)
-12. **Can also remove an installation** made by this script if you don't need your FPGA suite anymore
+It puts all the information out there right into a single CLI tool, leveraging not only the install process, but your entire user experience:
+
+* ✅ **Your FPGA suite now runs in its own environment**, unaffected by potentially breaking changes in your main OS.
+
+* ✅ **Containerization extends support to so-called atomic distributions** as well like [Fedora Silverblue](https://fedoraproject.org/atomic-desktops/silverblue/) & Co.
+
+* ✅ **Far improved portability** as you can easily migrate containers between systems.
+
+Last, but not least, **Linux users value their freedom**. You are no longer tied to a certain distro only because a certain program might require that.
+
 
 ### Be intuitive
-You can **use LazyFPGA script right away** without reading the Readme. The script will guide you through the process and give advice whenever anything does not work as intended.
 
-### Additional features
-* **Patching**: LazyFGPA can patch an install which it has applied previously, **addressing subsequent license installs**
+You can **use Lazy FPGA Containerized right away** without reading the Readme. The tool will guide you through the process and give advice whenever anything does not work as intended.
 
-
-* If detecting a Quartus root directory under `/opt/intelFPGA_lite`, it **will offer an automatic reinstall** which can be used i.e. to **repair broken installs**
-
-
-* As this aims to be a script **supporting laziness**, the impatient of us will appreciate **LazyFPGA's** ability to do pretty **any of the stuff that's time-consuming and error-prone if done manually**
 
 ### Get ready
-1. **Clone** this repo: `git clone https://github.com/3xnihil/LazyFPGA`
 
+1. **Clone** this repo:
+```
+git clone https://github.com/3xnihil/LazyFPGA
+```
 
-2. **Enter directory** and make script executable: `cd ./LazyFPGA && chmod +x lazyfpga.sh`
+2. **Enter directory** and make script executable:
+```
+cd ./LazyFPGA
+chmod +x lazyfpga
+```
 
 
 ### How to use
-`./lazyfpga.sh <-i | -p | -d <path> | -u | -v | -h>`
 
-#### Options
-* `-i` **Download Quartus installer** (if not present) and **install it automatically along all important steps Intel forgot about**
+```
+./lazyfpga [-s <setup-file>  Use custom Quartus setup file]
+	[-l <license-key-file>  Provide Questa license]
+	[-c <container-home-path>  Set custom container home]
+	| [-u  Uninstall container and other components]
+	| [-h  Show help] | [-v  Show version]
+```
+
+#### Available options
+
+* *(none given)* **No options at all** - the lazy variant ;)\
+Lazy FPGA Containerized tries to figure out configuration on its own:
+  1) **Search locally for a Quartus setup file**. If none can be found in your home dir, it will download one from Intel automatically.\
+  💡 For a different behaviour, you can use the `-s` option and specify a setup file manually.
+
+  2) **Search locally for a Questa license key file** and update its path automatically if found one.\
+  ⚠️ **Please keep in mind** that *you have to obtain such a key from Intel* if you need Questa!\
+  Your key file *can only be found automatically* if it has its default name (like `LR-123456_License.dat`).\
+  💡 In other cases, please use the `-l` option and specify the key manually!
 
 
-* `-p` **Patch** present Quartus installation. **Use this if you hadn't had a license during initial installation.** Will install license key file found anywhere inside your home dir and update all Quartus environment variables accordingly.
+* `-s <setup-file>` **Use a custom Intel setup file** for Quartus (with non-default file name) the auto-search cannot find
 
 
-* `-d <path>` **Only download Quartus installer** to the designated **path** (this won't do anything else). Works also on macOS if GNU grep is available.
+* `-l <license-key-file>` **Provide Questa license** key file (with non-default file name) the auto-search cannot find
 
 
-* `-u` **Uninstall present Quartus setup** and remove its desktop integration along with USB-blaster udev rules.
+* `-c <container-home-path>` **Change container home path** for the Quartus container
+
+
+* `-u` **Uninstall present Quartus setup** and remove its desktop integration (container, container home, launchers, mimes, udev rules)
 
 
 * `-v` **Show version info** of this script
@@ -79,23 +113,36 @@ You can **use LazyFPGA script right away** without reading the Readme. The scrip
 
 * `-h` **Show this help**
 
+
 #### Please note
+
 LazyFPGA utilizes `sudo` internally whenever root privileges are required. **Running as root is discouraged and not supported.**
 
-### Roadmap
-LazyFPGA is currently still limited when it comes to distro variety. Especially rolling release distros like openSUSE Tumbleweed or so-called "immutable" distros like Fedora Silverblue and other Atomic variants are not supported until now - either due to package conflicts (Quartus relies on older versions of *glibc* for example) or to the immutable nature of the OS itself, making a smooth integration more complicated.
 
-ℹ️ To resolve these shortcomings, **LazyFPGA** will try to change its approach and **utilize Docker or Podman to containerize Quartus inside a standard Ubuntu setup. Stay tuned!**
+### 🚧 Roadmap
 
-### Development
-However, **you are welcome to improve this script** or to **make suggestions** at any time! Feel free to make a pull request.
+**Lazy FPGA Containerized** fixed the shortcomings of its predecessor, *LazyFPGA*. With its help you can install Intel's FPGA suite on any distro which supports one of the widely-known container providers Podman and Docker, utilizing the great Distrobox as a frontend - to make you even more independent in your decisions.
+
+However, this first *containerized* version is not perfect. In a single point, it is currently less flexible than the script, namely *updating a license key for Questa*.
+
+💡 **This will be fixed in future versions** by adding an entry-point script to the container image which will load license key files dynamically from a certain (and customizable) directory, making re-installs related to key file updates superfluous. **Stay tuned!**
+
+
+### 🛠️ Development
+
+However, **you are welcome to improve this tool** or to **make suggestions** at any time! Feel free to make a pull request.
+
 
 ### Legal notes
-This script is **not associated to Intel company in any way** and is *by itself* free software (see license). Please note that Questa and Quartus are both proprietary software owned by Intel. **LazyFPGA only downloads** the Quartus installer from Intel's servers, but **will never contain it.**
+
+This script is **not associated to Intel company in any way** and is *by itself* free software (see license). Please note that Questa and Quartus are both proprietary software owned by Intel. **Lazy FPGA Containerized only downloads** the Quartus installer from Intel's servers at build time, but **will never contain it.**
+
 
 ### Final words
+
 *"Even Linux enthusiasts sometimes don't have any objections to simply sitting back and enjoy things getting done for them."* (Developer of LazyFPGA)
 
-#### Foot notes
-1. The Intel installer offers such an option, but the resulting launcher files simply cannot work this way ...
-2. **Credits to [zayronxio](https://github.com/zayronxio/Elementary-KDE-Icons)** who created the icon set!
+
+### 🏆 Credits
+
+* **Thanks to [zayronxio](https://github.com/zayronxio/Elementary-KDE-Icons)** who created the icon set used for the desktop launchers!
