@@ -16,6 +16,7 @@
 #		b) MIME-types for Quartus and Questa project files
 #		c) Udev-rules for USB-blaster
 #		d) CLI wrappers for quartus and vsim
+#		e) The container's home directory
 #
 
 # Remove container and images
@@ -82,7 +83,7 @@ function remove_desktop_integration() {
 
 	# All files have been removed
 	if [[ "${#files_not_removed[@]}" -eq 0 ]]; then
-		ok "Done: Quartus desktop integration has been removed"
+		ok "Successfully removed Quartus desktop integration"
 		return 0
 	else
 		err "Sorry, some files have not been removed"
@@ -91,6 +92,25 @@ function remove_desktop_integration() {
 			info "  - ${file}"
 		done
 		echo ""
+		return 1
+	fi
+}
+
+# Remove container home directory
+function remove_container_home() {
+	info "Removing container home directory, \"${CONTAINER_HOME}\" ..."
+	if rm -rf "${CONTAINER_HOME}" 2> /dev/null; then
+		ok "Successfully removed"
+		return 0
+	else
+		err "Sorry, could not remove!"
+		cat <<- EOB
+			 ==> Please note that auto-removal is only supported
+			  for the default container home directory!
+			  If you chose a custom path for install, please remove
+			  the directory manually.
+			  
+		EOB
 		return 1
 	fi
 }
@@ -121,6 +141,7 @@ function uninstall_quartus() {
 		"Starting uninstall ..." "Did not touch anything!"; then
 			if get_container_provider; then
 				remove_desktop_integration
+				remove_container_home
 				remove_container_setup
 			else
 				info "Cancelled uninstaller. See you!\n"

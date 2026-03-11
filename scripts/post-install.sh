@@ -117,28 +117,29 @@ setup_icons || steps_failed+=("Icons for desktop launchers")
 export_qcmds || steps_failed+=("Quartus/Questa container export and integration to host environment")
 
 
-### Conchise installation summary
+### Concise installation summary
 
 if [[ "${#steps_failed[@]}" -eq 0 ]]; then
 	show_success_msg
 else
 	cat <<- EOB
+		  
 		 Sorry, some steps experienced problems!
 		  ==> Please investigate and try to fix manually:
+		  
 	EOB
 	for step in "${steps_failed[@]}"; do
-		echo "  - ${step}"
+		echo "    - ${step}"
 	done
 	echo ""
 	exit_status=1
 fi
 
 cat <<- EOB
-	(i) Found a bug or do you have any improvements or feedback?
+	(i) Found a bug or do you have any suggestions for improvement or feedback?
 	  ${SCRIPT_PRETTY_NAME} is free software (GPLv3).
 	  You are welcome to make a pull request on GitHub
-	  or fork the entire project.
-	  Visit ${LAZYFPGA_PROJECTPAGE}
+	  or fork the entire project at ${LAZYFPGA_PROJECTPAGE}
 	  
 	 Have a good day!
 	  

@@ -244,34 +244,41 @@ function create_build_env_file() {
 
 # Search Questa license key. If none can be found, inform the user and ask to proceed
 function set_qlicense_key() {
-	if LM_LICENSE_FILE="$(find_file "*_License.dat")"; then
-		ok "Found Questa license at \"${LM_LICENSE_FILE}\""
-		return 0
+	# License variable is empty, run auto-search for license file
+	if [[ -z "${LM_LICENSE_FILE}" ]]; then
+		if LM_LICENSE_FILE="$(find_file "*_License.dat")"; then
+			ok "Found Questa license at \"${LM_LICENSE_FILE}\""
+			return 0
+		else
+			warn "Could not find a license key for Questa"
+			cat <<- EOB
+
+				 /!\\ If you intend to use Questa, you will need one!
+				      In this case, please obtain a license from Intel first.
+				      Then, just run ${SCRIPT_PRETTY_NAME} again. It will automatically
+				      find and set up the license key file.
+
+				  --> If auto-find (still) doesn't work, please provide
+				      the license manually by running "./${SCRIPT_TITLE} -l /path/to/your/license"!
+
+				 PLEASE NOTE:
+				  You will NOT be able to update the license once the Quartus container has been created!
+				  Containers are designed to be rather static environments difficult to modify afterwards.
+				  If you want to add a license key later, you have to uninstall the old
+				  container first by running "./${SCRIPT_TITLE} -u" and create a new one.
+
+				 Choose 'No' at the prompt below if you want Questa Vsim to work.
+				 You may proceed with 'Yes' if you don't need Questa at all.
+
+			EOB
+			ask_yn "Are you really sure you want to proceed without a Questa license?" \
+				"Be aware that Questa will not work!" \
+				"Cancelled. Just run ${SCRIPT_PRETTY_NAME} again after you got one :)"
+		fi
+	# User defined -l option, use this instead
 	else
-		warn "Could not find a license key for Questa"
-		cat <<- EOB
-
-			 /!\\ If you intend to use Questa, you will need one!
-			      In this case, please obtain a license from Intel first.
-			      Then, just run ${SCRIPT_PRETTY_NAME} again. It will automatically
-			      find and set up the license key file.
-
-			  --> If auto-find (still) doesn't work, please provide
-			      the license manually by running "./${SCRIPT_TITLE} -l /path/to/your/license"!
-
-			 PLEASE NOTE:
-			  You will NOT be able to update the license once the Quartus container has been created!
-			  Containers are designed to be rather static environments difficult to modify afterwards.
-			  If you want to add a license key later, you have to uninstall the old
-			  container first by running "./${SCRIPT_TITLE} -u" and create a new one.
-
-			 Choose 'No' at the prompt below if you want Questa Vsim to work.
-			 You may proceed with 'Yes' if you don't need Questa at all.
-
-		EOB
-		ask_yn "Are you really sure you want to proceed without a Questa license?" \
-			"Be aware that Questa will not work!" \
-			"Cancelled. Just run ${SCRIPT_PRETTY_NAME} again after you got one :)"
+		ok "Questa license is \"${LM_LICENSE_FILE}\""
+		return 0
 	fi
 }
 
@@ -280,19 +287,45 @@ function set_qlicense_key() {
 # where it is part of the Podman/Docker build context to be accessible from inside of the
 # container environment later on!
 function fetch_qinstaller() {
-	# Search Quartus setup locally
-	if [[ -f "${IMAGE_BUILD_CONTEXT}/${Q_INSTALLER_NAME}" ]]; then
+	# User provided installer via -s option
+	if [[ -f "${Q_INSTALLER}" ]]; then
 		ok "Intel Quartus setup already present"
-		Q_INSTALLER="${IMAGE_BUILD_CONTEXT}/${Q_INSTALLER_NAME}"
-	# Download setup if not present
 	else
-		download_qinstaller "${IMAGE_BUILD_CONTEXT}"
+		# Search for setup locally first if not present
+		if Q_INSTALLER="$(find_file "${Q_INSTALLER_NAME}")"; then
+			ok "Auto-search found an Intel setup file"
+			mv "${Q_INSTALLER}" "${IMAGE_BUILD_CONTEXT}/" 2> /dev/null \
+			|| { warn "Could not move setup file to \"${IMAGE_BUILD_CONTEXT}\"!";
+				info " --> Switching to download instead";
+				download_qinstaller "${IMAGE_BUILD_CONTEXT}"; }
+		# If there is no installer (with a default name), download one from Intel
+		else
+			info "Could not find an Intel setup file locally. Going to download ..."
+			download_qinstaller "${IMAGE_BUILD_CONTEXT}"
+		fi
 	fi
-	verify "${Q_INSTALLER}" "${Q_INSTALLER_CHECKSUM}"
-	# Make installer executable (required!), unpack it and extract its components,
-	# preparing them to being copied into the container image
-	chmod +x "${Q_INSTALLER}"
-	"${Q_INSTALLER}" --target "${Q_INSTALLER_DIR}" --noexec --noprogress
+	# Verify setup's integrity
+	if verify "${Q_INSTALLER}" "${Q_INSTALLER_CHECKSUM}"; then
+		# Make installer executable (required!), unpack it and extract its components,
+		# preparing them to being copied into the container image
+		chmod +x "${Q_INSTALLER}"
+		"${Q_INSTALLER}" --target "${Q_INSTALLER_DIR}" --noexec --noprogress
+	else
+		err "The setup file \"${Q_INSTALLER}\" is likely corrupted and should not be used!"
+		if ask_yn "Do you want to delete it and download a new one?" \
+			"Downloading ..." "Cancelled. If you change your mind, just run ${SCRIPT_PRETTY_NAME} again."; then
+				rm -f "${Q_INSTALLER}"
+				if download_qinstaller "${IMAGE_BUILD_CONTEXT}"; then
+					# Ensure the setup's default path is set (again) in this case (could have been customized)!
+					Q_INSTALLER="${IMAGE_BUILD_CONTEXT}/${Q_INSTALLER_NAME}"
+					return 0
+				else
+					return 1
+				fi
+		else
+			return 1
+		fi
+	fi
 }
 
 
@@ -331,6 +364,7 @@ if check_kernel &&\
 
 ### Switch over to actual installer script if download was successful
 
+	sleep 4 &&\
 	source scripts/install.sh
 
 fi

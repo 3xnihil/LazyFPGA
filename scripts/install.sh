@@ -96,17 +96,27 @@ function launch_intel_setup() {
 	info "${GREEN_BOLD}Distrobox will prepare the container in the next step."
 	info " ==> If ready, container will auto-launch the Intel setup. If it does, please continue at its window!${ENDCOLOR}\n"
 	cat <<- EOB
-		 PLEASE READ BEFORE YOU CONTINUE:
+		 PLEASE READ CAREFULLY BEFORE YOU CONTINUE:
+		  
 		  --> For the Intel setup, make sure to un-tick the checkbox "After-install actions".
 		      This prevents placement of broken launcher files on your desktop (they don't do any
 		      harm, they are just annoying and useless).
-		  --> Keep all other settings at their defaults. Otherwise, ${SCRIPT_PRETTY_NAME} cannot find
-		      the components Intel setup has downloaded, breaking functionality of this script!
+		  
+		  --> Keep all other settings-related options at their defaults! Otherwise, ${SCRIPT_PRETTY_NAME}
+		      cannot find the components Intel setup has downloaded, breaking functionality of this script.
+		  
+		  --> Choose the FPGA components you need.
+		      If you are ready, click on "Download" to start the setup process.
+		  
+		  --> If the Intel setup tells you it finished, confirm this message and close the setup's window.
+		      ${SCRIPT_PRETTY_NAME} will continue automatically and finish your Quartus install :)
+		  
 	EOB
 	important_note "As ${SCRIPT_PRETTY_NAME} waits for it to finish, PLEASE KEEP THIS SESSION OPENED!"
 
 	# User can confirm by pressing Enter if finished reading the message above
 	read -rp " Got it! [Enter]: "
+	echo ""
 	info "Preparing container. This may take a while, so please be patient ..."
 
 	# Ensure that distrobox successfully prepares the container:

@@ -136,7 +136,7 @@ function show_help() {
 		  
 		  -c <container-home-path>     Change home path for the Quartus Container (defaults to "${CONTAINER_HOME}")
 		  
-		  -u                      Uninstall present Quartus and remove its desktop integration (container, launchers, mimes, udev rules)
+		  -u                      Uninstall present Quartus and remove its desktop integration (container, container home, launchers, mimes, udev rules)
 		  
 		  -v                      Show version info of this script
 		  
@@ -165,9 +165,9 @@ function ask_yn() {
 	answer_on_y="$2"
 	answer_on_n="$3"
 
-	[ -z "${prompt}" ] && prompt="Is this okay?"
-	[ -z "${answer_on_y}" ] && answer_on_y="Moving on, but less lazy ..."
-	[ -z "${answer_on_n}" ] && answer_on_n="Cancelled on your decision."
+	[[ -z "${prompt}" ]] && prompt="Is this okay?"
+	[[ -z "${answer_on_y}" ]] && answer_on_y="Moving on, but less lazy ..."
+	[[ -z "${answer_on_n}" ]] && answer_on_n="Cancelled on your decision."
 
 	printf " %s [y/N]: " "${prompt}"
 	read -r choice

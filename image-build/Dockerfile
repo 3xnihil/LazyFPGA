@@ -53,11 +53,13 @@ ARG q_installer_script="" q_installer_wrapper="" container_home="" container_set
 # Because the package 'ubuntu-minimal' requires user interaction by default,
 # the env vars $DEBIAN_FRONTEND and $DEBCONF_NONINTERACTIVE_SEEN are set as shown.
 # Otherwise, 'apt' and the entire build would fail.
-# ==> The Gnome package is required to get the Intel setup running
+#  --> Minimal gnome-session-bin package is required to get the Intel setup running.
+#  --> libxft2 package is necessary to make Questa (vsim) work.
 ARG DEBIAN_FRONTEND=noninteractive
 ARG DEBCONF_NONINTERACTIVE_SEEN=true
 RUN apt-get update && apt-get install --no-install-recommends --no-install-suggests -y \
     software-properties-common \
+    libxft2 \
     gnome-session-bin \
     ubuntu-minimal; \
     dpkg --configure -a; \
