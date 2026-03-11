@@ -18,8 +18,9 @@
 
 # Build the container image
 function build_image() {
-	build_log="${IMAGE_BUILD_CONTEXT}/build-$(date -I seconds).log"
-	info "Building the container image. This may take a while, so feel free to get some coffee ..."
+	build_log="${IMAGE_BUILD_CONTEXT}/build-$(date --iso-8601=seconds).log"
+	info "The next steps may take some time to complete, so feel free to get some coffee"
+	info "Building the container image ..."
 	if "${PROVIDER_CMD}" build --build-arg-file "${IMAGE_BUILD_ARGFILE}" -t "${IMAGE_NAME}" "${IMAGE_BUILD_CONTEXT}" &> "${build_log}"; then
 		ok "Image \"${IMAGE_NAME}\" built successfully"
 		return 0
@@ -32,13 +33,13 @@ function build_image() {
 
 # Create the container itself from the image
 function create_container() {
-	creation_log="${IMAGE_BUILD_CONTEXT}/creation-$(date -I seconds).log"
-	info "Creating Quartus container \"${CONTAINER_NAME}\", please be patient ..."
+	creation_log="${IMAGE_BUILD_CONTEXT}/creation-$(date --iso-8601=seconds).log"
+	info "Creating Quartus container \"${CONTAINER_NAME}\" ..."
 	if distrobox create --name "${CONTAINER_NAME}" \
 		--image "${IMAGE_NAME}" \
 		--home "${CONTAINER_HOME}" \
 		--no-entry &> "${creation_log}"; then
-			ok "The Quartus container has been created successfully!"
+			ok "Quartus container has been created"
 			return 0
 		else
 			err "Sorry, something went wrong when trying to create the Quartus container!"
@@ -47,48 +48,20 @@ function create_container() {
 	fi
 }
 
-# Remove container and images (for cases of build fails)
-function remove_container_setup() {
+# Remove container and images in cases of build fails
+function cleanup_after_buildfail() {
+	# shellcheck source=/dev/null
+	source scripts/uninstall.sh
 	cat <<- EOB
-		 (i) Steps performed to remove container setup:
-		  - Container "${CONTAINER_NAME}" itself
-		  - Both container image "${IMAGE_NAME}" and Ubuntu base image
+		 (i) Steps performed to clean-up a corrupted container setup:
+		  - Removing container "${CONTAINER_NAME}" itself
+		  - Removing both container image "${IMAGE_NAME}" and Ubuntu base image
 		  - Clearing build cache
 		  
-		 --> Finally, try to run ${SCRIPT_PRETTY_NAME} again.
-		  
 	EOB
-	if (
-		"${PROVIDER_CMD}" container rm -f "${CONTAINER_NAME}" &&\
-		"${PROVIDER_CMD}" image rm -f "${IMAGE_NAME}" &&\
-		"${PROVIDER_CMD}" image rm -f ubuntu:22.04 &&\
-		"${PROVIDER_CMD}" buildx prune
-	); then
-		ok "Removed old container setup"
-		return 0
-	else
-		err "At least one of the removal steps has failed!"
-		cat <<- EOB
-			  
-			 ==> Try these steps manually:
-			  1) Please remove the damaged container itself first:
-			    ${PROVIDER_CMD} container rm ${CONTAINER_NAME}
-			  2) Remove both container image and Ubuntu base image:
-			    ${PROVIDER_CMD} image rm ${IMAGE_NAME}
-			    ${PROVIDER_CMD} image rm ubuntu:22.04
-			  3) Finally, clear the build cache:
-			     ${PROVIDER_CMD} buildx prune
-			  
-			 After that, just run ${SCRIPT_PRETTY_NAME} again.
-			  
-			 --> In tough cases, you could try a full reset for ${PROVIDER_CMD}:
-			     ${PROVIDER_CMD} system reset
-			  
-			 /!\\ CAUTION: ONLY DO THIS IF NOTHING ELSE HAS HELPED, AS THIS COMMAND
-			   WILL AFFECT AND DESTROY ALL CONTAINERS AND IMAGES SET UP ON YOUR SYSTEM!
-			  
-		EOB
-	fi
+	remove_container_setup
+	info "--> Finally, try to run ${SCRIPT_PRETTY_NAME} again.\n"
+	return 0
 }
 
 # Compare system times between host and container (for debugging purposes only)
@@ -120,32 +93,53 @@ function compare_systime_settings() {
 
 # Launch the Intel setup on first container start automatically
 function launch_intel_setup() {
-	info "Just a moment, distrobox init runs ..."
-	if distrobox enter "${CONTAINER_NAME}" -- "${Q_INSTALLER_WRAPPER_NAME}" &> /dev/null; then
+	info "${GREEN_BOLD}Distrobox will prepare the container in the next step."
+	info " ==> If ready, container will auto-launch the Intel setup. If it does, please continue at its window!${ENDCOLOR}\n"
+	cat <<- EOB
+		 PLEASE READ BEFORE YOU CONTINUE:
+		  --> For the Intel setup, make sure to un-tick the checkbox "After-install actions".
+		      This prevents placement of broken launcher files on your desktop (they don't do any
+		      harm, they are just annoying and useless).
+		  --> Keep all other settings at their defaults. Otherwise, ${SCRIPT_PRETTY_NAME} cannot find
+		      the components Intel setup has downloaded, breaking functionality of this script!
+	EOB
+	important_note "As ${SCRIPT_PRETTY_NAME} waits for it to finish, PLEASE KEEP THIS SESSION OPENED!"
+
+	# User can confirm by pressing Enter if finished reading the message above
+	read -rp " Got it! [Enter]: "
+	info "Preparing container. This may take a while, so please be patient ..."
+
+	# Ensure that distrobox successfully prepares the container:
+	#  Launch the wrapper script which will run the actual Intel setup such that we
+	#  can track when (flag-file has been placed) and how (exit status) the setup has quit:
+	if distrobox enter "${CONTAINER_NAME}" -- "${Q_INSTALLER_WRAPPER}" &> /dev/null; then
 		ok "Container is ready"
-		info "${GREEN_BOLD}==> Intel Quartus setup will now launch. Please continue at its window!${ENDCOLOR}\n"
-		# (Give user time to notice the info before launching Quartus setup)
-		sleep 2
+		# Prevent the ok-message from being cleared instantly
+		sleep 3
 		return 0
+
+	# If container preparation fails, provide gentle guidance for troubleshooting
 	else
 		err "Sorry, distrobox had problems to initialize the container!"
 		cat <<- EOB
 			  
 			 ==> Two main issues might have caused this:
 			  i)  Base image corruption. If this happened, a container
-			      created from such an image likely will have trouble.
+			      created from such an image likely will not work at all.
 			  ii) System time mismatch. The container's system time
-			      is not in sync with that of the host system, causing
-			      the container's initial package-index update to fail.
+			      is set wrongly, causing the container's initial
+			      package-index update to fail (time-related cert validation problem).
 			  
 			 --> Try to remove the problematic container setup first to
 			  eliminate (i) as a cause. Answer 'Yes' at the next prompt.
 			  Then run ${SCRIPT_PRETTY_NAME} again.
 			 --> Should the problem persist, likely (ii) is the cause.
 			  Answer 'No' at the next prompt and 'Yes' at the second.
-			  Then compare the system time set on your computer to the time set
-			  on the container. If they differ, please adjust your computer's
-			  system time. The updated time will be propagated to the container
+			  Then ensure the system time set on your host computer is accurate
+			  and compare it to the time set on the container.
+			  If the host time is wrong and/or container time and host time differ,
+			  please adjust and correct your host computer's system time.
+			  The updated host time will be propagated to the container
 			  automatically, solving the issue.
 			 --> In case none of these steps have helped, please investigate
 			  the container log by yourself:
@@ -154,7 +148,7 @@ function launch_intel_setup() {
 		EOB
 		ask_yn "(i) Do you want to auto-remove the problematic container setup?" \
 			"Starting auto-removal ..." "Switching to next option ..." &&\
-			remove_container_setup &&\
+			cleanup_after_buildfail &&\
 			exit 1
 		ask_yn "(ii) Do you want to compare system time settings?" \
 			"Comparing time settings ..." &&\
@@ -170,12 +164,15 @@ function launch_intel_setup() {
 clear
 heading "Stage 2/3: Build image and create container"
 
-build_image &&\
-create_container &&\
-launch_intel_setup
-
+if build_image && create_container; then
+	launch_intel_setup
 
 ### Finally, launch the post-installer
 
-# shellcheck source=/dev/null
-source scripts/post-install.sh
+	# shellcheck source=/dev/null
+	source scripts/post-install.sh
+
+# If the essential preparation steps (image build and container setup) fail, leave
+else
+	exit 1
+fi

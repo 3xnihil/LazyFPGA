@@ -45,8 +45,8 @@ FROM ubuntu:22.04
 # Make sure every argument defined in 'argfile.conf' will be consumed
 # (which simply means that the value is actually taken over
 # into the build process and does not remain empty)!
-ARG q_installer_name="" q_installer_wrapper_name="" container_home="" q_setup_dir="" \
-    q_dirname="" q_rootdir="" lm_license_file="" qsys_rootdir="" qfse_rootdir=""
+ARG q_installer_script="" q_installer_wrapper="" container_home="" container_setup_dir="" \
+    q_setup_dir="" q_dirname="" q_rootdir="" lm_license_file="" qsys_rootdir="" qfse_rootdir=""
 
 # Install basic tools and minimal Gnome session runtime first.
 # Excluding install-recommends and suggestions reduces the image's final size.
@@ -65,9 +65,9 @@ RUN apt-get update && apt-get install --no-install-recommends --no-install-sugge
     apt-get clean; \
     rm -rf /var/lib/apt/lists/*
 
-# Copy the Intel setup and its wrapper into the image to /usr/local/bin
+# Copy the Intel setup directory into the image to /usr/local/bin
 WORKDIR /usr/local/bin
-COPY --chmod=755 $q_installer_name .
+COPY --chmod=755 $q_installer_dir .
 
 # Copy the setup wrapper into the image.
 # --> The wrapper launches the Intel setup and will create a
@@ -76,15 +76,21 @@ COPY --chmod=755 $q_installer_name .
 #	when to continue with the finalizing steps.
 COPY --chmod=755 $q_installer_wrapper_name .
 
+# Fix broken CA certs Intel ships with their setup by linking to the system CA certs instead
+WORKDIR $container_setup_dir
+RUN rm -f common/misc/cacert.pem && ln -s /etc/ssl/certs/ca-certificates.crt common/misc/cacert.pem
+
 # Set (persistent) environment variables
 ENV CONTAINER_HOME=$container_home
 ENV Q_SETUP_DIR=$q_setup_dir
 ENV Q_DIRNAME=$q_dirname
 ENV Q_ROOTDIR=$q_rootdir
-ENV Q_INSTALLER_NAME=$q_installer_name
-ENV Q_INSTALLER_WRAPPER_NAME=$q_installer_wrapper_name
+ENV Q_INSTALLER_SCRIPT=$q_installer_script
+ENV Q_INSTALLER_WRAPPER=$q_installer_wrapper
 ENV LM_LICENSE_FILE=$lm_license_file
 ENV QSYS_ROOTDIR=$qsys_rootdir
 ENV QFSE_ROOTDIR=$qfse_rootdir
-# Add Quartus' and Questa's binary directories to the container's system $PATH
+# Add Quartus' and Questa's binary directories to the container's system $PATH.
+# Important: Curly brackets are explicitly omitted here because they cause buildx
+# to insert the host system path instead of the image path, but we need the image path!
 ENV PATH="$PATH:$qsys_rootdir:$qfse_rootdir"

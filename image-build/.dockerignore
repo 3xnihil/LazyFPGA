@@ -1,0 +1,12 @@
+# Lazy FPGA Docker Ignore File
+#
+# Author: Johannes Hüffer
+# Begin of development: 29.11.2024
+# Version: 0.1.0
+# Copying: GPL-3.0-only
+#
+Dockerfile
+.dockerignore
+xdg-open
+*.conf
+*.log

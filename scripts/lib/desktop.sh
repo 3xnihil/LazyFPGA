@@ -29,7 +29,7 @@ function create_quartus_launcher() {
 
 # Create a desktop file for Questa
 function create_questa_launcher() {
-	cat <<- EOF > "${QUESTA_DESKTOP_LAUNCHER_URI}"
+	cat <<- EOF > "${QUESTA_DESKTOP_LAUNCHER}"
 		[Desktop Entry]
 		Version=1.0
 		Type=Application

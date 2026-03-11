@@ -58,15 +58,20 @@ while getopts ":s:l:c:uhv" opt; do
 		c)
 			if [[ -d "${OPTARG}" ]] && [[ -O "${OPTARG}" ]]; then
 				CONTAINER_HOME="${OPTARG}"
+				Q_ROOTDIR="${CONTAINER_HOME}/${Q_DIRNAME}"
+				Q_SETUP_DIR="${CONTAINER_HOME}/setup"
+				FF_SETUP_DONE="${CONTAINER_HOME}/.setup-done"
+				FF_SETUP_FAILED="${CONTAINER_HOME}/.setup-failed"
 			else
 				echo -e " -c: Make sure the directory exists and ${USER} has ownership!\n"
 				exit 1
 			fi
 			;;
 
-		# TODO: Uninstall Quartus container and desktop integration
+		# Uninstall Quartus container and desktop integration
 		u)
-			echo -e " To be implemented! Uninstall option available soon!\n"
+			source scripts/uninstall.sh
+			uninstall_quartus
 			exit
 			;;
 		

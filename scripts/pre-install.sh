@@ -124,7 +124,7 @@ function check_desktop_env() {
 			  
 			 ==> You see this because ${SCRIPT_PRETTY_NAME} relies on this specification
 			  to determine where to store desktop launchers and mime types for Quartus and Questa.
-			  Probably you have to handle integration by yourself if things don't work out later!
+			  Probably you will have to handle integration by yourself if things don't work out later!
 			  
 			 ==> However, ${SCRIPT_PRETTY_NAME} will still work and you may proceed with the installation.
 			  
@@ -195,7 +195,7 @@ function check_dependencies() {
 	deps_found=()
 	deps_missing=()
 	for dep in "${required_deps[@]}"; do
-		if [[ -x "$(which "${dep}")" ]]; then
+		if [[ -x "$(which "${dep}" 2> /dev/null)" ]]; then
 			deps_found+=("${dep}")
 		else
 			deps_missing+=("${dep}")
@@ -203,7 +203,7 @@ function check_dependencies() {
 	done
 	if [[ "${#deps_found[@]}" -lt "${deps_total}" ]]; then
 		err "${SCRIPT_PRETTY_NAME} is missing dependencies!"
-		info " Please install first: ${deps_missing[*]}\n"
+		info " ==> Please install first: ${deps_missing[*]}\n"
 		return 1
 	else
 		return 0
@@ -228,7 +228,10 @@ function create_build_env_file() {
 		# Created automatically by ${SCRIPT_PRETTY_NAME} on $(date)
 		lazyfpga_rootdir=${LAZYFPGA_ROOTDIR}
 		container_home=${CONTAINER_HOME}
-		q_installer_name=${Q_INSTALLER_NAME}
+		container_setup_dir=${CONTAINER_SETUP_DIR}
+		q_installer_dir=${Q_INSTALLER_DIR}
+		q_installer_script=${Q_INSTALLER_SCRIPT}
+		q_installer_wrapper=${Q_INSTALLER_WRAPPER}
 		q_installer_wrapper_name=${Q_INSTALLER_WRAPPER_NAME}
 		q_setup_dir=${Q_SETUP_DIR}
 		q_dirname=${Q_DIRNAME}
@@ -278,22 +281,22 @@ function set_qlicense_key() {
 # container environment later on!
 function fetch_qinstaller() {
 	# Search Quartus setup locally
-	#if Q_INSTALLER="$(find_file "${Q_INSTALLER_NAME}")"; then
 	if [[ -f "${IMAGE_BUILD_CONTEXT}/${Q_INSTALLER_NAME}" ]]; then
 		ok "Intel Quartus setup already present"
 		Q_INSTALLER="${IMAGE_BUILD_CONTEXT}/${Q_INSTALLER_NAME}"
-		#mv "${Q_INSTALLER}" "${IMAGE_BUILD_CONTEXT}/" ||\
-		#{ err "Could not move setup file \"${Q_INSTALLER_NAME}\" from dir \"$(dirname "${Q_INSTALLER}")\" to build context \"${IMAGE_BUILD_CONTEXT}\"!"; return 1; }
 	# Download setup if not present
 	else
 		download_qinstaller "${IMAGE_BUILD_CONTEXT}"
 	fi
 	verify "${Q_INSTALLER}" "${Q_INSTALLER_CHECKSUM}"
+	# Make installer executable (required!), unpack it and extract its components,
+	# preparing them to being copied into the container image
+	chmod +x "${Q_INSTALLER}"
+	"${Q_INSTALLER}" --target "${Q_INSTALLER_DIR}" --noexec --noprogress
 }
 
 
 ### Check all requirements before launching actual pre-installer
-# FIXME before commit: un-comment 'check_cpu_arch' again!
 
 clear
 greet_short
@@ -301,13 +304,13 @@ heading "Stage 1/3: Checking requirements"
 
 if check_kernel &&\
 	verify_is_not_root &&\
-	#check_cpu_arch &&\
+	check_cpu_arch &&\
 	check_desktop_env &&\
 	check_distro &&\
 	check_shell &&\
 	check_sudo &&\
 	check_container_provider &&\
-	check_dependencies distrobox curl; then
+	check_dependencies distrobox curl git; then
 
 
 ### Create the container home dir and prepare image build env

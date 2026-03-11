@@ -25,13 +25,40 @@
 #		 accessible as they were installed natively on the host system.
 #
 
-FF_SETUP_DONE="${CONTAINER_HOME}/.setup-done"
-FF_SETUP_FAILED="${CONTAINER_HOME}/.setup-failed"
+# Show success message in case install finished without any errors
+function show_success_msg() {
+	cat <<- EOB
+		  
+		 ${SCRIPT_PRETTY_NAME} has finished successfully!
+		  
+		 --> Quartus (and Questa) are now ready to use - nearly
+		  independent of your base GNU+Linux distro :)
+		  
+		 --> To make sure everything will work smoothly,
+		  please log out of your current desktop session and log back in.
+		  
+	EOB
+}
 
+# Show hint in cases the Quartus root dir cannot be found or Quartus/Questa are missing
+function show_hint_to_missing_resource() {
+	cat <<- EOB
+		  
+		 ==> Make sure that the Intel setup has enough time to finish!
+		  You might see this if
+		    - the Intel setup crashed during the "Installing" process;
+		    - you accidentially clicked on "Cancel" or "Stop" before the download was finished.
+		  
+		 --> Just run ${SCRIPT_PRETTY_NAME} again, be patient and ensure a reliable internet connection.
+		  In case the Intel setup seems not to do anything even if the download already finished,
+		  just click the "Download" button again. This will do the trick and start the "Installing" process.
+		  
+	EOB
+}
 
-### Hang on in waiting loop until flag-file detected
-
-important_note "Waiting for Intel setup to finish: KEEP THIS SESSION OPENED!"
+### Hang on in waiting loop until a flag-file is detected (Intel setup has quit).
+# This tells us about the Intel setup's exit status, as the container prevents
+# its direct investigation from the host
 
 while [[ ! -f "${FF_SETUP_DONE}" ]] && [[ ! -f "${FF_SETUP_FAILED}" ]]; do
 	sleep 1
@@ -61,29 +88,60 @@ source scripts/lib/mime.sh
 source scripts/lib/icons.sh
 source scripts/lib/cmdexport.sh
 
-create_udevrules
-create_qlaunchers
-create_qmimetypes
-setup_icons
-export_qcmds
+# Only proceed if the script was able to find a Quartus root dir
+# ready for deployment! Otherwise, tell the user that it's missing and
+# the setup has to be run again in order to download all required components
+if [[ -d "${Q_ROOTDIR}" ]]; then
+	is_anything_missing=false
+	[[ -x "${QSYS_ROOTDIR}/quartus" ]] || { err "Found no binary for Quartus!"; is_anything_missing=true; }
+	[[ -x "${QFSE_ROOTDIR}/vsim" ]] || { err "Found no binary for Questa (Vsim)!"; is_anything_missing=true; }
+	if "${is_anything_missing}"; then
+		show_hint_to_missing_resource
+		exit 1
+	fi
+else
+	err "Could not find Quartus root dir!"
+	show_hint_to_missing_resource
+	exit 1
+fi
 
-# TODO: Display this goodbye message always with a sig-trap if the script exits
+### Perform final post-install steps
+
+steps_failed=()
+exit_status=0
+
+create_udevrules || steps_failed+=("Udev-rules (USB-blaster support)")
+create_qlaunchers || steps_failed+=("Desktop launchers")
+create_qmimetypes || steps_failed+=("MIME-types")
+setup_icons || steps_failed+=("Icons for desktop launchers")
+export_qcmds || steps_failed+=("Quartus/Questa container export and integration to host environment")
+
+
+### Conchise installation summary
+
+if [[ "${#steps_failed[@]}" -eq 0 ]]; then
+	show_success_msg
+else
+	cat <<- EOB
+		 Sorry, some steps experienced problems!
+		  ==> Please investigate and try to fix manually:
+	EOB
+	for step in "${steps_failed[@]}"; do
+		echo "  - ${step}"
+	done
+	echo ""
+	exit_status=1
+fi
+
 cat <<- EOB
-	  
-	 ${SCRIPT_PRETTY_NAME} has finished.
-	  
-	 --> Please evaluate the messages above.
-	  If you can only see green "OK" feedback,
-	  Quartus (and Questa) are now ready to use - nearly
-	  independent of your base GNU+Linux distro :)
-	  
-	 --> To make sure everything will work smoothly,
-	  please log out of your current desktop session and log back in.
-
-	 (i) Found a bug or do you have any improvements or feedback?
+	(i) Found a bug or do you have any improvements or feedback?
 	  ${SCRIPT_PRETTY_NAME} is free software (GPLv3).
 	  You are welcome to make a pull request on GitHub
-	  or fork the entire project:
-	    "${LAZYPFGA_PROJECTPAGE}"
+	  or fork the entire project.
+	  Visit ${LAZYFPGA_PROJECTPAGE}
+	  
+	 Have a good day!
 	  
 EOB
+
+exit "${exit_status}"

@@ -96,7 +96,7 @@ function greet_long() {
 		  (i) Found a bug or have any ideas for improvement? Feel free
 		      to contribute! Join this project on ${LAZYFPGA_PROJECTPAGE}
 		    
-		 *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
+		 *-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*-*
 		    
 	EOB
 }
@@ -114,7 +114,7 @@ function greet_short() {
 function show_help() {
 	cat <<- EOB
 		Usage:
-		  ${SCRIPT_TITLE} [-s <setup-file>  Use custom Quartus setup file] [-l <license-key-file>  Provide Questa license]
+		  ./${SCRIPT_TITLE} [-s <setup-file>  Use custom Quartus setup file] [-l <license-key-file>  Provide Questa license]
 		            [-c <container-home-path>  Set custom container home] |
 		            [-u  Uninstall container and other components] | [-h  Show help] | [-v  Show version]
 		  

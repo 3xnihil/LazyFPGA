@@ -21,13 +21,13 @@ function export_qcmds() {
 	printf "# Add local binary dir to \$PATH\nexport PATH=\${PATH}:%s" "${bin_dir}" >> "${shellrc}"
 
 	# Peform actual export
-	if distrobox enter "${CONTAINER_NAME}" -- distrobox-export --bin "\$(which quartus)" --export-path "${bin_dir}"; then
+	if distrobox enter "${CONTAINER_NAME}" -- distrobox-export --bin "${QSYS_ROOTDIR}/quartus" --export-path "${bin_dir}" &> /dev/null; then
 		ok "Exported Quartus command (quartus)"
 	else
 		err "Could not export Quartus command (quartus)!"
 		exit_status=1
 	fi
-	if distrobox enter "${CONTAINER_NAME}" -- distrobox-export --bin "\$(which vsim)" --export-path "${bin_dir}"; then
+	if distrobox enter "${CONTAINER_NAME}" -- distrobox-export --bin "${QFSE_ROOTDIR}/vsim" --export-path "${bin_dir}" &> /dev/null; then
 		ok "Exported Questa command (vsim)"
 	else
 		err "Could not export Questa command (vsim)!"
