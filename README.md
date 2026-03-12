@@ -3,6 +3,8 @@
 ## Lazy FPGA Containerized: automated setup for Intel's FPGA suite, supporting a wide range of different GNU+Linux distributions
 **This CLI tool aims to elevate user experience** of the offical **Quartus Prime Lite** FPGA software and its installer **to a new level** and enables to **run the FPGA suite on almost any GNU+Linux distro** of your choice.
 
+---
+
 ### 🎯 Features
 
 * 🐚 **100% Bash** shell code for native support
@@ -11,6 +13,7 @@
 * 🐧 **Supports distro freedom**
 * 🪶 **Smooth operation** as containerization solves most compatibility issues
 
+---
 
 ### ℹ️ Requirements
 
@@ -26,6 +29,38 @@
 (3) *Currently. This will be fixed soon, as it is only relevant if you want automatic integration of the FPGA CLI tools, too.*
 
 
+---
+---
+
+
+### ⚠️ **IMPORTANT NOTES ON DOCKER:**
+
+* **When using [Docker Rootless](https://docs.docker.com/engine/security/rootless/)**, you will likely have to stick with distros featuring **[Systemd](https://systemd.io)**.\
+*During testing Lazy FPGA on Devuan I realized Docker Rootless seems to **depend on a DBus package directly related to Systemd** (even if Devuan ships with a DBus implementation). An unresolvable package conflict emerged when I tried to install `docker-ce-rootless-extras` concerning DBus.*
+
+* **On distros without Systemd (like [Devuan](https://www.devuan.org)) you might have no other choice than using Podman** if you want a rootless setup (which is recommended for security reasons)
+
+* **Debian and many of its derivatives have [security-relevant issues coming along with Docker](https://docs.docker.com/engine/network/packet-filtering-firewalls/#docker-and-ufw)**.
+
+---
+
+✅ **RECOMMENDATION:**
+
+* **If you are unsure** which container provider/manager to use, **choose Podman**:
+  - It comes with **rootless mode by default**
+  - You can also use rootfull mode (like native Docker does) if desired
+  - **No SOF** any more (aka Docker Daemon)!
+  - It is **far easier to install** (most distros ship it with their sources and it's a **single package** only)
+  - It is **100% compatible with Docker** (and offers a socket if needed)
+  - **If you already know Docker, you know Podman.** Their syntax is identical.
+  - Finally, it is even **100% compatible with Compose**. Just install `docker-compose` along and you are ready to go.
+
+* **TL;DR:** Just use Podman.
+
+---
+---
+
+
 ### 🌱 Motivation
 
 * The **original "installer" is entirely insufficient.** Unlike on Windows, on Linux it is limited to download Quartus' components and does a kind of preparation, but won't actually *install* all the stuff. **Making it usable Intel lets up to you ...**
@@ -38,6 +73,7 @@
 
 ➡️ **By default, Linux users are left behind** with a less than half-baked setup, have to tinker around and **must fear their setup could break** if they upgrade their OS to a (more) recent version.
 
+---
 
 ### 💡 How it helps
 
@@ -53,11 +89,14 @@ It puts all the information out there right into a single CLI tool, leveraging n
 
 Last, but not least, **Linux users value their freedom**. You are no longer tied to a certain distro only because a certain program might require that.
 
+---
 
-### Be intuitive
+### Intuitive
 
 You can **use Lazy FPGA Containerized right away** without reading the Readme. The tool will guide you through the process and give advice whenever anything does not work as intended.
 
+---
+---
 
 ### Get ready
 
@@ -114,10 +153,12 @@ Lazy FPGA Containerized tries to figure out configuration on its own:
 * `-h` **Show this help**
 
 
-#### Please note
+#### 💥 Please note
 
-LazyFPGA utilizes `sudo` internally whenever root privileges are required. **Running as root is discouraged and not supported.**
+LazyFPGA utilizes `sudo` internally whenever root privileges are required. **Running as root is discouraged, unnecessarily dangerous and not supported!**
 
+---
+---
 
 ### 🚧 Roadmap
 
@@ -127,21 +168,29 @@ However, this first *containerized* version is not perfect. In a single point, i
 
 💡 **This will be fixed in future versions** by adding an entry-point script to the container image which will load license key files dynamically from a certain (and customizable) directory, making re-installs related to key file updates superfluous. **Stay tuned!**
 
+---
+---
 
 ### 🛠️ Development
 
 However, **you are welcome to improve this tool** or to **make suggestions** at any time! Feel free to make a pull request.
 
+---
+---
 
 ### Legal notes
 
 This script is **not associated to Intel company in any way** and is *by itself* free software (see license). Please note that Questa and Quartus are both proprietary software owned by Intel. **Lazy FPGA Containerized only downloads** the Quartus installer from Intel's servers at build time, but **will never contain it.**
 
+---
+---
 
 ### Final words
 
 *"Even Linux enthusiasts sometimes don't have any objections to simply sitting back and enjoy things getting done for them."* (Developer of LazyFPGA)
 
+---
+---
 
 ### 🏆 Credits
 

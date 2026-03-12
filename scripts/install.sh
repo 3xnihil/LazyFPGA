@@ -91,6 +91,33 @@ function compare_systime_settings() {
 	fi
 }
 
+# Check root sharing for filesystem
+function check_root_sharing() {
+	# If "/" is shared, this can't be the problem
+	if findmnt -o TARGET,PROPAGATION / | grep -q shared; then
+		ok "Filesystem root, \"/\", already shared"
+		info " ==> This is not the cause of this problem!"
+		return 0
+	else
+		exit_status=0
+		warn "Filesystem root, \"/\", is not shared!"
+		info "(i) Changing this temporarily. Please enter you password if prompted for\n"
+		sudo mount --make-shared / && exit_status="$?"
+		cat <<- EOB
+			  
+			 --> Make the share permanent manually. On many distros, edit
+			  Grub configuration at "/etc/default/grub" and append to
+			  the same line starting with "GRUB_CMDLINE_LINUX= ... shared-subtree=shared",
+			  where "..." stands for any parameters which already had been in place before
+			  and should remain unchanged normally!
+			 --> Update your Grub bootloader. How to do this heavily depends on your distro,
+			  so please figure this out by yourself. The change should then survive reboots.
+			  
+		EOB
+		return "${exit_status}"
+	fi
+}
+
 # Launch the Intel setup on first container start automatically
 function launch_intel_setup() {
 	info "${GREEN_BOLD}Distrobox will prepare the container in the next step."
@@ -133,36 +160,51 @@ function launch_intel_setup() {
 		err "Sorry, distrobox had problems to initialize the container!"
 		cat <<- EOB
 			  
-			 ==> Two main issues might have caused this:
-			  i)  Base image corruption. If this happened, a container
-			      created from such an image likely will not work at all.
-			  ii) System time mismatch. The container's system time
-			      is set wrongly, causing the container's initial
-			      package-index update to fail (time-related cert validation problem).
+			 ==> Three main issues might have caused this:
+			  i)    Base image corruption. If this happened, a container
+			        created from such an image likely will not work at all.
+			  ii)   System time mismatch. System time is set wrongly,
+			        causing the container's initial package-index update
+			        to fail (time-related cert validation problem).
+			  iii)  Maybe your host's filesystem root, "/", is not shared,
+			        posing potential problems to rootless container setups
+			        like the one about to set up.
 			  
 			 --> Try to remove the problematic container setup first to
 			  eliminate (i) as a cause. Answer 'Yes' at the next prompt.
-			  Then run ${SCRIPT_PRETTY_NAME} again.
-			 --> Should the problem persist, likely (ii) is the cause.
+			  
+			 --> Should the problem persist, maybe (ii) is the cause.
 			  Answer 'No' at the next prompt and 'Yes' at the second.
 			  Then ensure the system time set on your host computer is accurate
 			  and compare it to the time set on the container.
-			  If the host time is wrong and/or container time and host time differ,
-			  please adjust and correct your host computer's system time.
+			  If the time is wrong, please adjust and correct your host
+			  computer's system time!
 			  The updated host time will be propagated to the container
 			  automatically, solving the issue.
-			 --> In case none of these steps have helped, please investigate
+			  
+			 --> Should the problem still persist, (iii) could be the cause.
+			  Answer 'No' at the next two prompts and 'Yes' at the third.
+			  This will temporarily enable root sharing, which is required
+			  for rootless containers to work properly.
+			  
+			 (i) In case none of these steps have helped, please investigate
 			  the container log by yourself:
-			   ${PROVIDER_CMD} logs -f ${CONTAINER_NAME}
+			    ${PROVIDER_CMD} logs -f ${CONTAINER_NAME}
 			  
 		EOB
-		ask_yn "(i) Do you want to auto-remove the problematic container setup?" \
+		ask_yn "(i)   Do you want to auto-remove the problematic container setup?" \
 			"Starting auto-removal ..." "Switching to next option ..." &&\
 			cleanup_after_buildfail &&\
 			exit 1
-		ask_yn "(ii) Do you want to compare system time settings?" \
-			"Comparing time settings ..." &&\
-			compare_systime_settings
+		ask_yn "(ii)  Do you want to compare system time settings?" \
+			"Comparing time settings ..." "Switching to next option ..." &&\
+			compare_systime_settings &&\
+			exit 1
+		ask_yn "(iii) Do you want to check root sharing?" \
+			"Checking root sharing ..." &&\
+			check_root_sharing
+			
+		info "Finally, run ${SCRIPT_PRETTY_NAME} again.\n"
 		# Prevent the post-install stage from launching in this case!
 		exit 1
 	fi
